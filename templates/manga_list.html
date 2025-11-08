@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="mb-3">Quản lý truyện</h4>
+
+<form class="d-flex gap-2 mb-3" method="get" action="{{ url_for('manga_list') }}">
+  <input class="form-control" name="q" placeholder="Tìm theo tên / tác giả / thể loại" value="{{ q or '' }}">
+  <button class="btn btn-dark">Tìm</button>
+  <button type="button" class="btn btn-success ms-auto" data-bs-toggle="modal" data-bs-target="#addModal">Thêm truyện</button>
+</form>
+
+<!-- ============ BẢNG CHO DESKTOP/TABLET ============ -->
+<div class="table-wrap">
+  <table class="table table-striped table-hover align-middle mb-0">
+    <thead class="table-dark">
+      <tr>
+        <th>ID truyện</th>
+        <th>Tên truyện</th>
+        <th>Thể loại</th>
+        <th>Tác giả</th>
+        <th>Giá thuê (VND)</th>
+        <th>Tình trạng</th>
+        <th>Tồn kho</th>
+        <th style="width:160px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in items %}
+      <tr>
+        <td>{{ m.id }}</td>
+        <td>{{ m.title }}</td>
+        <td>{{ m.genre }}</td>
+        <td>{{ m.author }}</td>
+        <td>{{ m.rent_price }}</td>
+        <td>{{ m.condition }}</td>
+        <td>{{ m.stock }}</td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editModal{{m.id}}">Sửa</button>
+          <form method="post" action="{{ url_for('manga_delete', mid=m.id) }}" style="display:inline" onsubmit="return confirm('Xóa truyện này?')">
+            <button class="btn btn-sm btn-danger">Xóa</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ============ DANH SÁCH THẺ CHO MOBILE ============ -->
+<div class="list-cards">
+  {% for m in items %}
+  <div class="list-card">
+    <div class="list-row"><span class="list-label">ID</span><span>{{ m.id }}</span></div>
+    <div class="list-row"><span class="list-label">Tên truyện</span><span>{{ m.title }}</span></div>
+    <div class="list-row"><span class="list-label">Thể loại</span><span>{{ m.genre }}</span></div>
+    <div class="list-row"><span class="list-label">Tác giả</span><span>{{ m.author }}</span></div>
+    <div class="list-row"><span class="list-label">Giá thuê</span><span>{{ m.rent_price }} VND</span></div>
+    <div class="list-row"><span class="list-label">Tình trạng</span><span>{{ m.condition }}</span></div>
+    <div class="list-row"><span class="list-label">Tồn kho</span><span>{{ m.stock }}</span></div>
+    <div class="list-actions">
+      <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{m.id}}">Sửa</button>
+      <form method="post" action="{{ url_for('manga_delete', mid=m.id) }}" style="display:inline" onsubmit="return confirm('Xóa truyện này?')">
+        <button class="btn btn-sm btn-outline-danger">Xóa</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+
+<!-- ===== Modals SỬA: đặt ngoài bảng ===== -->
+{% for m in items %}
+<div class="modal fade" id="editModal{{m.id}}" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('manga_update', mid=m.id) }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Sửa truyện</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body row g-2">
+        <div class="col-12">
+          <label class="form-label">Tên truyện</label>
+          <input name="title" class="form-control" value="{{m.title}}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Thể loại</label>
+          <input name="genre" class="form-control" value="{{m.genre}}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tác giả</label>
+          <input name="author" class="form-control" value="{{m.author}}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Giá thuê (VND)</label>
+          <input name="rent_price" class="form-control" value="{{m.rent_price}}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tình trạng</label>
+          <select name="condition" class="form-select">
+            <option {{'selected' if m.condition=='Mới' else ''}}>Mới</option>
+            <option {{'selected' if m.condition=='Cũ' else ''}}>Cũ</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">Số lượng tồn kho</label>
+          <input name="stock" type="number" class="form-control" value="{{m.stock}}" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button class="btn btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Modal THÊM -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="{{ url_for('manga_add') }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Thêm truyện</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body row g-2">
+        <div class="col-6"><label class="form-label">ID truyện</label><input name="id" class="form-control" required></div>
+        <div class="col-6"><label class="form-label">Tên truyện</label><input name="title" class="form-control" required></div>
+        <div class="col-6"><label class="form-label">Thể loại</label><input name="genre" class="form-control" required></div>
+        <div class="col-6"><label class="form-label">Tác giả</label><input name="author" class="form-control" required></div>
+        <div class="col-6"><label class="form-label">Giá thuê (VND)</label><input name="rent_price" class="form-control" required></div>
+        <div class="col-6">
+          <label class="form-label">Tình trạng</label>
+          <select name="condition" class="form-select"><option>Mới</option><option>Cũ</option></select>
+        </div>
+        <div class="col-6"><label class="form-label">Số lượng tồn kho</label><input name="stock" type="number" class="form-control" required></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button class="btn btn-success">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %} {% block content %}
+<h4 class="mb-3">Thống kê doanh thu</h4>
+
+<form class="row g-2 mb-3" method="get" action="{{ url_for('stats') }}">
+  <div class="col-md-3">
+    <label class="form-label">Từ ngày</label>
+    <input
+      name="from"
+      class="form-control"
+      placeholder="DD-MM-YYYY"
+      value="{{ date_from }}"
+    />
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Đến ngày</label>
+    <input
+      name="to"
+      class="form-control"
+      placeholder="DD-MM-YYYY"
+      value="{{ date_to }}"
+    />
+  </div>
+  <div class="col-md-3 d-flex align-items-end">
+    <button class="btn btn-dark">Thống kê</button>
+  </div>
+</form>
+
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <div class="text-muted">Tổng giao dịch</div>
+        <div class="display-6">{{ total_trans }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <div class="text-muted">Tổng giá thuê</div>
+        <div class="display-6">
+          {{ "{:,}".format(total_rent).replace(",", ".") }} VND
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <div class="text-muted">Tổng phí trễ</div>
+        <div class="display-6">
+          {{ "{:,}".format(total_late).replace(",", ".") }} VND
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center border-success">
+      <div class="card-body">
+        <div class="text-muted">Doanh thu tổng</div>
+        <div class="display-6 text-success">
+          {{ "{:,}".format(total).replace(",", ".") }} VND
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

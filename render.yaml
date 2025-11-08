@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: ung-dung-web-cho-thue-truyen-tranh
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --chdir ung_dung_web_cho_thue_truyen_tranh --bind 0.0.0.0:$PORT --workers 2
+    plan: free
+    autoDeploy: true

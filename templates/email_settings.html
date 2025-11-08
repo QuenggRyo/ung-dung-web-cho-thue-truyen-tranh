@@ -1,0 +1,114 @@
+{% extends "base.html" %} {% block title %}Cấu hình email{% endblock %} {% block
+content %}
+<div class="container py-4">
+  <h2 class="mb-4">Cấu hình email</h2>
+
+  <form method="post">
+    <div class="row g-3">
+      <!-- Chỉ giữ các mục cần thiết -->
+      <div class="col-md-6">
+        <label class="form-label">Tên hiển thị</label>
+        <input
+          name="sender_name"
+          type="text"
+          class="form-control"
+          value="{{ cfg.get('sender_name','') }}"
+          placeholder="VD: Cửa Hàng Truyện Tranh 2025"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Email gửi đi</label>
+        <input
+          name="sender_email"
+          type="email"
+          class="form-control"
+          value="{{ cfg.get('sender_email','') }}"
+          placeholder="you@gmail.com"
+          autocapitalize="off"
+          spellcheck="false"
+          inputmode="email"
+        />
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">SMTP Pass (App Password)</label>
+        <input
+          name="smtp_pass"
+          type="password"
+          class="form-control"
+          value="{{ cfg.get('smtp_pass','') }}"
+          placeholder="Mật khẩu ứng dụng 16 ký tự của Gmail"
+          autocomplete="new-password"
+        />
+      </div>
+
+      <div class="col-md-6 d-flex align-items-end">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="use_tls"
+          name="use_tls" {% if cfg.get('use_tls', True) %}checked{% endif %}>
+          <label class="form-check-label" for="use_tls">Dùng STARTTLS</label>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-4" />
+
+    <div class="mb-3">
+      <label class="form-label">Mẫu email <b>khi thuê</b></label>
+      <textarea
+        name="tpl_rent"
+        class="form-control"
+        rows="7"
+        placeholder="HTML của mẫu email khi thuê"
+      >
+{{ cfg.get('tpl_rent','') }}</textarea
+      >
+      <div class="form-text">
+        Biến có thể dùng: <code>{customer_name}</code>,
+        <code>{manga_title}</code>, <code>{rent_price}</code>,
+        <code>{start_at}</code>, <code>{due_at}</code>,
+        <code>{shop_name}</code>.
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Mẫu email <b>khi trả</b></label>
+      <textarea
+        name="tpl_return"
+        class="form-control"
+        rows="7"
+        placeholder="HTML của mẫu email khi trả"
+      >
+{{ cfg.get('tpl_return','') }}</textarea
+      >
+      <div class="form-text">
+        Biến có thể dùng: <code>{customer_name}</code>,
+        <code>{manga_title}</code>, <code>{start_at}</code>,
+        <code>{due_at}</code>, <code>{return_at}</code>,
+        <code>{late_fee}</code>, <code>{shop_name}</code>.
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+      <button type="submit" class="btn btn-primary">Lưu cấu hình</button>
+      <a
+        href="{{ url_for('email_settings') }}?reset_tpl=1"
+        class="btn btn-outline-secondary"
+      >
+        Khôi phục mẫu mặc định
+      </a>
+    </div>
+  </form>
+
+  <div class="alert alert-secondary mt-4" role="alert">
+    <b>Ghi chú:</b> Hệ thống đã cố định gửi qua Gmail
+    (<code>smtp.gmail.com:587</code>, STARTTLS). Bạn chỉ cần nhập
+    <i>Email gửi đi</i> và <i>SMTP Pass</i> (mật khẩu ứng dụng 16 ký tự). Hướng
+    dẫn lấy App Password:
+    <i>Cài đặt &gt; Bảo mật &gt; Xác minh 2 bước &gt; Mật khẩu ứng dụng</i>.
+  </div>
+</div>
+{% endblock %}

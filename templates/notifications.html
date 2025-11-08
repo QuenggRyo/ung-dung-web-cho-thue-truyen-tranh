@@ -1,0 +1,48 @@
+{% extends "base.html" %} {% block content %}
+<h4 class="mb-3">Thông báo</h4>
+<p class="text-muted">Double-click vào thông báo để đánh dấu đã đọc.</p>
+
+<div class="list-y-scroll mt-2">
+  <ul class="list-group mb-0">
+    {% for n in notifs %}
+    <li
+      class="list-group-item d-flex justify-content-between align-items-center {% if not n.read %}list-group-item-warning{% endif %}"
+      ondblclick="markRead('{{ n.id }}', this)"
+    >
+      <div>
+        <div class="fw-semibold">{{ n.message }}</div>
+        <div class="small text-muted">{{ n.created_at }}</div>
+      </div>
+      {% if not n.read %}<span class="badge bg-danger rounded-pill">Mới</span>{%
+      endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+
+<script>
+  function markRead(id, el) {
+    fetch("{{ url_for('notifications') }}?read=" + id, { method: "POST" })
+      .then(() => {
+        // Xóa trạng thái "chưa đọc" trên item
+        el.classList.remove("list-group-item-warning");
+        el.querySelector(".badge")?.remove();
+
+        // --- Cập nhật ngay số thông báo trên menu ---
+        const badge = document.querySelector(".badge-noti .count");
+        if (badge) {
+          let current = parseInt(badge.textContent.trim());
+          if (!isNaN(current) && current > 0) {
+            current -= 1;
+            if (current <= 0) {
+              badge.remove(); // hết thì ẩn luôn
+            } else {
+              badge.textContent = current; // cập nhật số mới
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }
+</script>
+{% endblock %}

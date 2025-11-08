@@ -1,0 +1,352 @@
+{% extends "base.html" %} {% block content %}
+<h4 class="mb-3">Quản lý khách hàng</h4>
+
+<form
+  class="d-flex gap-2 mb-3"
+  method="get"
+  action="{{ url_for('customers_list') }}"
+>
+  <input
+    class="form-control"
+    name="q"
+    placeholder="Tìm theo tên / SĐT / email / ID"
+    value="{{ q or '' }}"
+  />
+  <button class="btn btn-dark">Tìm</button>
+  <button
+    type="button"
+    class="btn btn-success ms-auto"
+    data-bs-toggle="modal"
+    data-bs-target="#addModal"
+  >
+    Thêm khách hàng
+  </button>
+</form>
+
+<!-- ============ BẢNG CHO DESKTOP/TABLET ============ -->
+<div class="table-wrap">
+  <table class="table table-striped table-hover align-middle mb-0">
+    <thead class="table-dark">
+      <tr>
+        <th class="nowrap">ID KH</th>
+        <th class="min-160">Họ tên</th>
+        <th class="nowrap">Tuổi</th>
+        <th class="nowrap">SĐT</th>
+        <th class="min-160">Địa chỉ</th>
+        <th class="nowrap">CMND/CCCD</th>
+        <th class="nowrap">Email</th>
+        <th style="width: 160px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set rows = customers if customers is defined else items %} {% for c in
+      rows %}
+      <tr>
+        <td>
+          <!-- ID: bấm để mở modal lịch sử như code cũ -->
+          <button
+            type="button"
+            class="btn btn-link p-0"
+            data-bs-toggle="modal"
+            data-bs-target="#history{{ c.id }}"
+          >
+            {{ c.id }}
+          </button>
+        </td>
+        <td>{{ c.name }}</td>
+        <td class="nowrap">{{ c.age }}</td>
+        <td class="nowrap">{{ c.phone }}</td>
+        <td class="min-160">{{ c.address }}</td>
+        <td class="nowrap">{{ c.national_id }}</td>
+        <td class="nowrap">{{ c.email }}</td>
+        <td class="text-end">
+          <button
+            type="button"
+            class="btn btn-sm btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#edit{{ c.id }}"
+          >
+            Sửa
+          </button>
+          <form
+            method="post"
+            action="{{ url_for('customers_delete', cid=c.id) }}"
+            style="display: inline"
+            onsubmit="return confirm('Xóa khách hàng này?')"
+          >
+            <button class="btn btn-sm btn-danger">Xóa</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ============ DANH SÁCH THẺ CHO MOBILE ============ -->
+<div class="list-cards">
+  {% set rows = customers if customers is defined else items %} {% for c in rows
+  %}
+  <div class="list-card">
+    <div class="list-row">
+      <span class="list-label">ID KH</span>
+      <span>
+        <button
+          type="button"
+          class="btn btn-link p-0"
+          data-bs-toggle="modal"
+          data-bs-target="#history{{ c.id }}"
+        >
+          {{ c.id }}
+        </button>
+      </span>
+    </div>
+    <div class="list-row">
+      <span class="list-label">Họ tên</span><span>{{ c.name }}</span>
+    </div>
+    <div class="list-row">
+      <span class="list-label">Tuổi</span><span>{{ c.age }}</span>
+    </div>
+    <div class="list-row">
+      <span class="list-label">SĐT</span><span>{{ c.phone }}</span>
+    </div>
+    <div class="list-row">
+      <span class="list-label">Địa chỉ</span><span>{{ c.address }}</span>
+    </div>
+    <div class="list-row">
+      <span class="list-label">CMND/CCCD</span><span>{{ c.national_id }}</span>
+    </div>
+    <div class="list-row">
+      <span class="list-label">Email</span><span>{{ c.email }}</span>
+    </div>
+
+    <div class="list-actions d-flex gap-2 flex-wrap">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#edit{{ c.id }}"
+      >
+        Sửa
+      </button>
+      <form
+        method="post"
+        action="{{ url_for('customers_delete', cid=c.id) }}"
+        onsubmit="return confirm('Xóa khách hàng này?')"
+        class="m-0"
+      >
+        <button class="btn btn-sm btn-outline-danger">Xóa</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ===== Modals SỬA (đặt ngoài bảng) ===== -->
+{% for c in items %}
+<div class="modal fade" id="edit{{c.id}}" tabindex="-1">
+  <div class="modal-dialog">
+    <form
+      class="modal-content"
+      method="post"
+      action="{{ url_for('customers_update', cid=c.id) }}"
+    >
+      <div class="modal-header">
+        <h5 class="modal-title">Sửa khách hàng</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body row g-2">
+        <div class="col-6">
+          <label class="form-label">Tên</label
+          ><input
+            name="name"
+            class="form-control"
+            value="{{c.name}}"
+            required
+          />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tuổi</label
+          ><input
+            type="number"
+            name="age"
+            class="form-control"
+            value="{{c.age}}"
+            required
+          />
+        </div>
+        <div class="col-6">
+          <label class="form-label">SĐT</label
+          ><input name="phone" class="form-control" value="{{c.phone}}" />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Địa chỉ</label
+          ><input name="address" class="form-control" value="{{c.address}}" />
+        </div>
+        <div class="col-6">
+          <label class="form-label">CMND/CCCD</label
+          ><input
+            name="national_id"
+            class="form-control"
+            value="{{c.national_id}}"
+          />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Email</label
+          ><input
+            type="email"
+            name="email"
+            class="form-control"
+            value="{{c.email}}"
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Hủy
+        </button>
+        <button class="btn btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ===== Modals LỊCH SỬ THUÊ (mở khi bấm ID) ===== -->
+{% set all_rentals = read_json(user_file(session['username'],'rentals.json'),
+[]) %} {% for c in items %}
+<div class="modal fade" id="history{{c.id}}" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Lịch sử thuê — KH {{ c.id }} ({{ c.name }})</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body scroll-y">
+        {% set history = [] %} {% for r in all_rentals %} {% if r.customer_id ==
+        c.id %} {% set _ = history.append(r) %} {% endif %} {% endfor %} {% if
+        history|length == 0 %}
+        <div class="text-muted">Chưa có giao dịch.</div>
+        {% else %}
+        <div class="table-responsive">
+          <table
+            class="table table-bordered table-hover align-middle table-nowrap"
+          >
+            <colgroup>
+              <col style="min-width: 260px" />
+              <!-- Truyện -->
+              <col style="min-width: 170px" />
+              <!-- Ngày thuê -->
+              <col style="min-width: 170px" />
+              <!-- Hạn -->
+              <col style="min-width: 170px" />
+              <!-- Ngày trả -->
+              <col style="min-width: 130px" />
+              <!-- Trạng thái -->
+              <col style="min-width: 130px" />
+              <!-- Giá thuê -->
+              <col style="min-width: 110px" />
+              <!-- Phí trễ hạn -->
+            </colgroup>
+            <thead class="table-light">
+              <tr>
+                <th>Truyện</th>
+                <th>Ngày thuê</th>
+                <th>Hạn</th>
+                <th>Ngày trả</th>
+                <th>Trạng thái</th>
+                <th>Giá thuê</th>
+                <th>Phí trễ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in history|sort(attribute='created_at', reverse=True) %}
+              <tr>
+                <td>{{ r.manga_title }}</td>
+                <td>{{ r.created_at }}</td>
+                <td>{{ r.due_at }}</td>
+                <td>{{ r.returned_at or '' }}</td>
+                <td>{{ 'Đã trả' if r.returned_at else 'Chưa trả' }}</td>
+                <td>{{ r.rent_price }}</td>
+                <td>{{ r.late_fee }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- ===== Modal THÊM KHÁCH HÀNG ===== -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form
+      class="modal-content"
+      method="post"
+      action="{{ url_for('customers_add') }}"
+    >
+      <div class="modal-header">
+        <h5 class="modal-title">Thêm khách hàng</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body row g-2">
+        <div class="col-6">
+          <label class="form-label">ID khách hàng</label
+          ><input name="id" class="form-control" required />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tên</label
+          ><input name="name" class="form-control" required />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Tuổi</label
+          ><input type="number" name="age" class="form-control" required />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Số điện thoại</label
+          ><input name="phone" class="form-control" />
+        </div>
+        <div class="col-6">
+          <label class="form-label">Địa chỉ</label
+          ><input name="address" class="form-control" />
+        </div>
+        <div class="col-6">
+          <label class="form-label">CMND/CCCD</label
+          ><input name="national_id" class="form-control" />
+        </div>
+        <div class="col-12">
+          <label class="form-label">Email</label
+          ><input type="email" name="email" class="form-control" required />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Hủy
+        </button>
+        <button class="btn btn-success">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

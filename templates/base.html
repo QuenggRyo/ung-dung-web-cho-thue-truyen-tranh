@@ -1,0 +1,423 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      {{ session.get('shop_name','Hệ thống quản lý & cho thuê truyện tranh') }}
+    </title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='img/logo.png') }}"
+    />
+
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .btn {
+        border-radius: 12px;
+      }
+      .badge-noti {
+        position: relative;
+      }
+      .badge-noti .count {
+        position: absolute;
+        top: -6px;
+        right: -10px;
+        background: #dc3545;
+        color: #fff;
+        border-radius: 999px;
+        padding: 2px 6px;
+        font-size: 12px;
+      }
+      table td,
+      table th {
+        vertical-align: middle;
+      }
+      .cursor-pointer {
+        cursor: pointer;
+      }
+      .navbar .nav-link.active {
+        background-color: #0b7d44 !important; /* xanh như nút Thêm */
+        color: #fff !important;
+        border-radius: 8px;
+      }
+      /* Giữ cho textarea cao hơn mặc định */
+      textarea.form-control {
+        height: auto !important; /* không ép chiều cao cố định */
+        min-height: 140px !important; /* dày hơn, thoáng hơn */
+        padding: 10px 12px !important;
+        font-size: 15px !important;
+        line-height: 1.5 !important;
+        resize: vertical !important; /* cho phép kéo giãn dọc */
+      }
+
+      /* ===== Nhẹ & phẳng cho ô tìm và nút ===== */
+      :root {
+        --control-h: 38px; /* chiều cao mỏng ~2/3 */
+        --control-fs: 15px; /* cỡ chữ vừa mắt */
+      }
+
+      /* Ô nhập */
+      .form-control {
+        height: var(--control-h) !important;
+        padding: 0 0.75rem !important;
+        font-size: var(--control-fs) !important;
+        line-height: 1.2 !important;
+      }
+
+      /* Tất cả nút (Tìm / Thêm / Tạo giao dịch...) */
+      .btn {
+        height: var(--control-h) !important;
+        padding: 0 0.9rem !important;
+        font-size: var(--control-fs) !important;
+        line-height: 1.2 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        white-space: nowrap !important; /* ép chữ trên 1 dòng */
+      }
+
+      /* Nút màu xanh cho nổi vừa phải */
+      .btn-success {
+        font-weight: 500;
+      }
+
+      /* Nếu ô tìm + nút đặt trong cùng 1 hàng, canh thẳng hàng */
+      .search-row,
+      .search-bar,
+      form.search-line,
+      form .input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px; /* khoảng cách đều */
+        flex-wrap: nowrap; /* không cho tự xuống dòng */
+      }
+
+      /* Khi màn hình rất nhỏ mới cho xuống dòng */
+      @media (max-width: 576px) {
+        .search-row,
+        .search-bar,
+        form.search-line {
+          flex-wrap: wrap;
+        }
+      }
+
+      /* Đảm bảo các control trong input-group cũng có chiều cao mỏng */
+      .input-group > .form-control,
+      .input-group > .btn {
+        height: var(--control-h) !important;
+      }
+
+      /* Giữ style active cho menu như bạn đang dùng */
+      .navbar .nav-link.active {
+        background-color: #0b7d44 !important;
+        color: #fff !important;
+        border-radius: 8px;
+      }
+
+      /* ===== Scroll dọc riêng cho bảng danh sách (sticky header) ===== */
+      .table-y-scroll {
+        /* Chiều cao tối đa của vùng danh sách.
+     Bạn có thể tinh chỉnh con số  calc(100vh - 260px)  nếu header của bạn cao hơn/thấp hơn */
+        max-height: calc(100vh - 260px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bs-body-bg);
+      }
+
+      /* Giữ hàng tiêu đề dính trên cùng khi cuộn */
+      .table-y-scroll thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        /* Bảo đảm màu nền tiêu đề luôn phủ che các ô bên dưới khi cuộn */
+        background: var(--bs-dark);
+        color: #fbfbfb;
+      }
+
+      /* Tối ưu khoảng cách & canh giữa nội dung bảng */
+      .table-y-scroll .table {
+        margin-bottom: 0; /* tránh tạo khoảng trắng dưới bảng khiến thanh cuộn dài hơn cần thiết */
+      }
+      .table-y-scroll td,
+      .table-y-scroll th {
+        vertical-align: middle;
+      }
+
+      /* ===== Scroll dọc cho danh sách (thông báo) ===== */
+      :root {
+        /* cao tối đa cho vùng danh sách; chỉnh số nếu muốn */
+        --list-scroll-max: calc(100vh - 240px);
+      }
+
+      .list-y-scroll {
+        max-height: var(--list-scroll-max);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px; /* để chữ không bị che bởi scrollbar */
+        border-radius: 8px;
+      }
+
+      .list-y-scroll .list-group {
+        margin-bottom: 0;
+      }
+
+      @media (max-width: 576px) {
+        :root {
+          --list-scroll-max: calc(100vh - 280px);
+        }
+      }
+
+      /* ===== Bảng có thể cuộn & không xuống dòng ===== */
+      .table-nowrap th,
+      .table-nowrap td {
+        white-space: nowrap; /* không cho xuống dòng */
+      }
+
+      /* .table-responsive vốn có overflow-x:auto của Bootstrap,
+   nhưng thêm min-height để luôn thấy scrollbar khi cần */
+      .table-responsive {
+        overflow-x: auto;
+      }
+
+      /* ===== Modal rộng hơn & cuộn dọc phần body ===== */
+      .modal-dialog.modal-xl {
+        /* mở rộng modal (Bootstrap) */
+        max-width: 95vw; /* rộng tối đa theo màn hình */
+      }
+
+      .modal-body.scroll-y {
+        /* cuộn dọc phần nội dung modal */
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+
+      /* Nút đăng nhập/đăng ký: hẹp lại và căn giữa */
+      .auth-btn {
+        width: clamp(
+          200px,
+          50%,
+          360px
+        ) !important; /* hẹp lại, linh hoạt theo màn hình */
+        display: block !important; /* để margin auto có tác dụng */
+        margin: 0.75rem auto 0 !important; /* căn giữa */
+        padding-left: 1.25rem; /* nhìn gọn hơn */
+        padding-right: 1.25rem;
+      }
+
+      /* ===== Responsive cho bảng: desktop giữ bảng, mobile dùng thẻ card ===== */
+      .table-wrap {
+        max-height: calc(100vh - 280px);
+        overflow: auto;
+        border-radius: 12px;
+      }
+      .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #1f2937;
+        color: #fff;
+      }
+      /* ép bảng có bề rộng tối thiểu để tránh vỡ cột; thiếu chỗ sẽ xuất hiện cuộn ngang */
+      .table {
+        min-width: 720px;
+      }
+      .nowrap {
+        white-space: nowrap;
+      }
+      .min-120 {
+        min-width: 120px;
+      }
+      .min-160 {
+        min-width: 160px;
+      }
+
+      /* Mobile: ẩn bảng, hiện danh sách dạng thẻ */
+      @media (max-width: 576px) {
+        .table-wrap {
+          display: none;
+        }
+        .list-cards {
+          display: grid;
+          gap: 12px;
+        }
+        .list-card {
+          background: #fff;
+          border-radius: 14px;
+          padding: 12px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+        .list-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          margin: 0.25rem 0;
+        }
+        .list-label {
+          opacity: 0.65;
+        }
+        .list-actions {
+          display: flex;
+          gap: 8px;
+          margin-top: 8px;
+        }
+        .btn-sm {
+          padding: 6px 10px;
+          border-radius: 10px;
+        }
+      }
+      /* Desktop: ẩn card, dùng bảng như hiện tại */
+      @media (min-width: 577px) {
+        .list-cards {
+          display: none;
+        }
+      }
+
+      /* === Tối ưu menu di động === */
+      @media (max-width: 991.98px) {
+        .navbar-nav .nav-link {
+          display: block;
+          padding: 10px 14px;
+          border-radius: 8px;
+          margin-bottom: 4px;
+          text-align: center;
+        }
+
+        .navbar-nav .nav-link.active {
+          background-color: #198754;
+          color: white !important;
+        }
+
+        .navbar-nav .nav-link:hover {
+          background-color: #e9ecef;
+        }
+
+        .navbar-collapse .btn-outline-dark {
+          display: block;
+          width: 100%;
+          margin-top: 10px;
+          margin-bottom: 10px;
+          padding: 10px 0;
+          border-radius: 8px;
+        }
+
+        .navbar-collapse {
+          padding: 10px 0;
+        }
+      }
+
+      /* === Căn giữa nút Đăng xuất trong menu mobile === */
+      @media (max-width: 991.98px) {
+        .navbar-collapse .btn-outline-dark {
+          display: inline-block;
+          width: auto; /* Chỉ dài theo nội dung */
+          margin: 12px auto 8px auto; /* Căn giữa theo chiều ngang */
+          padding: 8px 18px;
+          border-radius: 8px;
+          text-align: center;
+          position: relative;
+          left: 50%;
+          transform: translateX(-50%); /* Căn giữa tuyệt đối */
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    {% set cur = request.path %}
+    <nav
+      class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top"
+    >
+      <div class="container">
+        <a class="navbar-brand fw-bold" href="{{ url_for('manga_list') }}"
+          >{{ session.get('shop_name','Hệ thống quản lý & cho thuê truyện
+          tranh') }}</a
+        >
+        {% if session.get("username") %}
+        <button
+          class="navbar-toggler ms-auto d-lg-none"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#mainNav"
+          aria-controls="mainNav"
+          aria-expanded="false"
+          aria-label="Mở menu"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse mt-2 mt-lg-0" id="mainNav">
+          <ul class="navbar-nav me-auto ms-lg-3">
+            <li class="nav-item">
+              <a
+                class="nav-link{{ ' active' if cur.startswith('/manga') }}"
+                href="{{ url_for('manga_list') }}"
+                >Quản lý truyện</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link{{ ' active' if cur.startswith('/customers') }}"
+                href="{{ url_for('customers_list') }}"
+                >Quản lý khách hàng</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link{{ ' active' if cur.startswith('/rentals') }}"
+                href="{{ url_for('rentals_list') }}"
+                >Thuê/trả truyện</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link badge-noti{{ ' active' if cur.startswith('/notifications') }}"
+                href="{{ url_for('notifications') }}"
+              >
+                Thông báo {% set uc = unread_count if unread_count is defined
+                else 0 %} {% if uc>0 %}<span class="count">{{ uc }}</span>{%
+                endif %}
+              </a>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link{{ ' active' if cur.startswith('/stats') }}"
+                href="{{ url_for('stats') }}"
+                >Thống kê doanh thu</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link{{ ' active' if cur.startswith('/email-settings') }}"
+                href="{{ url_for('email_settings') }}"
+                >Cấu hình email</a
+              >
+            </li>
+          </ul>
+
+          <div class="ms-lg-auto">
+            <a class="btn btn-outline-dark" href="{{ url_for('logout') }}"
+              >Đăng xuất</a
+            >
+          </div>
+        </div>
+
+        {% endif %}
+      </div>
+    </nav>
+
+    <div class="container my-4">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for cat, msg in messages %}
+      <div class="alert alert-{{cat}}">{{msg}}</div>
+      {% endfor %} {% endif %} {% endwith %} {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
