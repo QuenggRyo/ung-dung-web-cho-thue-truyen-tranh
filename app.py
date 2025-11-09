@@ -3,7 +3,35 @@ import os, json, uuid, smtplib, hashlib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify # type: ignore
+from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, jsonify # type: ignore
+
+# ====== Cấu hình và hàm gửi email an toàn ======
+EMAIL_ENABLED    = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
+SMTP_HOST        = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT        = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER        = os.getenv("SMTP_USER", "")
+SMTP_PASS        = os.getenv("SMTP_PASS", "")
+SMTP_FROM_NAME   = os.getenv("SMTP_FROM_NAME", "Cua Hang Truyen Tranh 2025")
+SMTP_FROM_EMAIL  = os.getenv("SMTP_FROM_EMAIL", SMTP_USER or "no-reply@example.com")
+
+def safe_send_email(to_email: str, subject: str, html_body: str):
+    """Gửi mail an toàn: nếu lỗi thì không crash"""
+    if not EMAIL_ENABLED:
+        return True, "Email disabled"
+    try:
+        msg = MIMEText(html_body, "html", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM_EMAIL))
+        msg["To"] = to_email
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+            s.ehlo()
+            s.starttls()
+            s.login(SMTP_USER, SMTP_PASS)
+            s.sendmail(SMTP_FROM_EMAIL, [to_email], msg.as_string())
+        return True, "OK"
+    except Exception as e:
+        return False, str(e)
+# ===============================================
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
@@ -443,23 +471,43 @@ def rentals_create():
     rentals.append(rec)
     write_json(user_file(username, "rentals.json"), rentals)
 
-    # ------ Gửi email theo mẫu người dùng ------
+    # ------ Gửi email theo mẫu người dùng (không để crash) ------
     cfg = read_json(user_file(username, "email.json"), {})
-    tpl = cfg.get("tpl_rent") or default_email_cfg(session.get('shop_name','')).get("tpl_rent")
+    tpl = cfg.get("tpl_rent")
+    if not tpl:
+        # fallback template (dùng chuỗi trong ngoặc để tránh lỗi 3-nháy)
+        tpl = (
+            "<h3>{{ shop_name }} - Xác nhận thuê truyện</h3>"
+            "<p>Xin chào {{ customer_name }}, bạn đã thuê <b>{{ manga_title }}</b>.</p>"
+            "<ul>"
+            "<li>Giá thuê: {{ rent_price }}</li>"
+            "<li>Ngày thuê: {{ start_at }}</li>"
+            "<li>Đến hạn: {{ due_at }}</li>"
+            "</ul>"
+        )
+
     ctx = {
         "customer_name": cust["name"],
         "manga_title": mg["title"],
         "rent_price": rent_price,
         "start_at": start_at,
         "due_at": due_at,
-        "return_at": "",
-        "late_fee": "0",
-        "shop_name": session.get("shop_name","Cửa hàng")
+        "shop_name": session.get("shop_name", "Cửa hàng"),
     }
+
     subject = f"[{session.get('shop_name','Cửa hàng')}] Xác nhận thuê truyện"
-    html = render_tpl(tpl, ctx)
-    send_email_if_configured(username, subject, html, cust["email"])
-    # -------------------------------------------
+    html = render_template_string(tpl, **ctx)
+
+    try:
+        ok, msg = safe_send_email(cust["email"], subject, html)
+        if not ok:
+            print(f"[EMAIL][WARN] {msg}")
+            flash("Đã tạo giao dịch, nhưng chưa gửi được email thông báo.", "warning")
+    except Exception as e:
+        # Phòng hờ: không bao giờ để crash vì email
+        print(f"[EMAIL][EXC] {e}")
+        flash("Đã tạo giao dịch, nhưng không gửi được email.", "warning")
+    # ------------------------------------------------------------
 
     flash("Đã tạo giao dịch thuê.", "success")
     return redirect(url_for("rentals_list"))
