@@ -25,11 +25,12 @@ def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_em
 
 
         if not sender_email or not smtp_pass:
-            # Nếu đã cấu hình RESEND_API_KEY thì dùng Resend thay vì fail
             if RESEND_API_KEY:
-                fe = sender_email or "onboarding@resend.dev"  # địa chỉ from hợp lệ với Resend
-                fn = sender_name  or "Cửa Hàng Truyện Tranh 2025"
-                ok, msg = send_email_via_resend(fe, fn, to_email, subject, html_body)
+                fe = os.getenv("RESEND_FROM", "onboarding@resend.dev")  # from hợp lệ với Resend
+                fn = sender_name or "Cửa Hàng Truyện Tranh 2025"
+                # gắn Reply-To về email cửa hàng (nếu có)
+                html_plus = html_body
+                ok, msg = send_email_via_resend(fe, fn, to_email, subject, html_plus, reply_to=sender_email or "")
                 return (True, "OK(Resend)") if ok else (False, f"SMTP missing → Resend: {msg}")
             return False, "Thiếu sender_email hoặc smtp_pass trong email.json"
 
@@ -52,11 +53,18 @@ def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_em
     except Exception as e:
         print(f"[EMAIL][USERCFG][ERROR] {e}")
         # fallback HTTPS: Resend (nếu có API key)
-        ok2, msg2 = send_email_via_resend(sender_email, sender_name, to_email, subject, html_body)
+        fe = os.getenv("RESEND_FROM", "onboarding@resend.dev")
+        ok2, msg2 = send_email_via_resend(
+            fe,
+            sender_name or "Cửa Hàng Truyện Tranh 2025",
+            to_email,
+            subject,
+            html_body
+        )
         if ok2:
             return True, "OK(Resend)"
         return False, f"SMTP fail → {msg2}"
-
+    
 # ==========================================================
 
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
