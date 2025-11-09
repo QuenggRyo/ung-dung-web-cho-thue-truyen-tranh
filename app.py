@@ -5,36 +5,40 @@ from email.mime.text import MIMEText
 from email.utils import formataddr
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, jsonify # type: ignore
 
+TZ_OFFSET_HOURS = int(os.getenv("TZ_OFFSET_HOURS", "7"))  # GMT+7
+
 # ========= Gửi mail theo cấu hình đã lưu của user =========
 def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_email: str):
     """
-    Gửi email bằng Gmail SMTP (App Password) qua SSL 465.
-    Lấy cấu hình từ email.json của user để không bị crash.
+    Gửi email Gmail bằng App Password qua SSL 465 (ổn định trên Render).
+    Đọc cấu hình từ data/users/<user>/email.json.
+    Trả về (ok: bool, msg: str) và KHÔNG raise để tránh 502.
     """
     try:
         cfg = read_json(user_file(username, "email.json"), {})
         sender_email = (cfg.get("sender_email") or cfg.get("email") or "").strip()
-        sender_name = (cfg.get("sender_name") or cfg.get("display_name") or "Cửa Hàng Truyện Tranh 2025").strip()
-        smtp_pass = (cfg.get("smtp_pass") or cfg.get("app_password") or "").strip()
+        sender_name  = (cfg.get("sender_name")  or cfg.get("display_name") or "Cửa Hàng Truyện Tranh 2025").strip()
+        smtp_pass    = (cfg.get("smtp_pass")    or cfg.get("app_password") or "").strip()
 
         if not sender_email or not smtp_pass:
-            return False, "email.json thiếu sender_email hoặc smtp_pass"
+            return False, "Thiếu sender_email hoặc smtp_pass trong email.json"
 
-        # Tạo nội dung email
+        from email.mime.text import MIMEText
+        from email.utils import formataddr
+        import smtplib, ssl
+
         msg = MIMEText(html_body, "html", "utf-8")
         msg["Subject"] = subject
-        msg["From"] = formataddr((sender_name, sender_email))
-        msg["To"] = to_email
+        msg["From"]    = formataddr((sender_name, sender_email))
+        msg["To"]      = to_email
 
-        # Gửi qua Gmail SSL port 465 (ổn định trên Render)
-        import smtplib, ssl
+        # GỬI BẰNG SSL 465 (không dùng STARTTLS)
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as server:
-            server.login(sender_email, smtp_pass)
-            server.sendmail(sender_email, [to_email], msg.as_string())
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as s:
+            s.login(sender_email, smtp_pass)
+            s.sendmail(sender_email, [to_email], msg.as_string())
 
         return True, "OK"
-
     except Exception as e:
         print(f"[EMAIL][USERCFG][ERROR] {e}")
         return False, str(e)
@@ -476,8 +480,10 @@ def rentals_create():
     customer_id = (request.form.get("customer_id") or "").strip()
     manga_id = (request.form.get("manga_id") or "").strip()
     rent_price = format_price(request.form.get("rent_price") or "0")
-    start_at = now_str()
-    due_at = (datetime.now() + timedelta(days=5)).strftime(DT_FMT)
+    # Lấy giờ theo GMT+7 (Việt Nam)
+    now_local = datetime.utcnow() + timedelta(hours=7)
+    start_at = now_local.strftime(DT_FMT)
+    due_at = (now_local + timedelta(days=5)).strftime(DT_FMT)
 
     cust = next((c for c in customers if c["id"]==customer_id), None)
     mg = next((m for m in manga if m["id"]==manga_id), None)
