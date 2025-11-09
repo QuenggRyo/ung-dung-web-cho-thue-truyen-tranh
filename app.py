@@ -1,5 +1,5 @@
 # app.py
-import os, json, uuid, smtplib, hashlib, ssl
+import os, json, uuid, smtplib, hashlib, ssl, requests # type: ignore
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.utils import formataddr
@@ -41,9 +41,37 @@ def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_em
         return True, "OK"
     except Exception as e:
         print(f"[EMAIL][USERCFG][ERROR] {e}")
-        return False, str(e)
+        # fallback HTTPS: Resend (nếu có API key)
+        ok2, msg2 = send_email_via_resend(sender_email, sender_name, to_email, subject, html_body)
+        if ok2:
+            return True, "OK(Resend)"
+        return False, f"SMTP fail → {msg2}"
+
 # ==========================================================
 
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+
+def send_email_via_resend(from_email, from_name, to_email, subject, html):
+    if not RESEND_API_KEY:
+        return False, "RESEND_API_KEY not set"
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json={
+                "from": f"{from_name} <{from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html,
+            },
+            timeout=15,
+        )
+        if 200 <= r.status_code < 300:
+            return True, "OK"
+        return False, f"Resend {r.status_code}: {r.text}"
+    except Exception as e:
+        return False, str(e)
+    
 # ====== Cấu hình và hàm gửi email an toàn ======
 EMAIL_ENABLED    = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
 SMTP_HOST        = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -512,7 +540,7 @@ def rentals_create():
     rentals.append(rec)
     write_json(user_file(username, "rentals.json"), rentals)
 
-        # ------ Gửi email theo mẫu người dùng (không để crash) ------
+    # ------ Gửi email theo mẫu người dùng (không để crash) ------
     cfg = read_json(user_file(username, "email.json"), {})
     tpl = cfg.get("tpl_rent")
     if not tpl:
@@ -538,7 +566,7 @@ def rentals_create():
 
     # TẠO subject + html (bắt buộc có trước khi gửi)
     subject = f"[{session.get('shop_name','Cửa hàng')}] Xác nhận thuê truyện"
-    html = render_template_string(tpl, **ctx)
+    html = render_tpl(tpl, ctx)
 
     # Gửi mail theo cấu hình của user trong email.json
     to_email = str(cust.get("email", "")).strip()
