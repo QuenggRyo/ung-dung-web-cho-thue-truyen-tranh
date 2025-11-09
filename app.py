@@ -1,5 +1,5 @@
 # app.py
-import os, json, uuid, smtplib, hashlib
+import os, json, uuid, smtplib, hashlib, ssl
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.utils import formataddr
@@ -8,37 +8,33 @@ from flask import Flask, render_template, render_template_string, request, redir
 # ========= Gửi mail theo cấu hình đã lưu của user =========
 def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_email: str):
     """
-    Đọc cấu hình từ email.json của user và gửi mail.
-    Trả về (ok: bool, message: str). Không raise để tránh crash.
+    Gửi email bằng Gmail SMTP (App Password) qua SSL 465.
+    Lấy cấu hình từ email.json của user để không bị crash.
     """
     try:
         cfg = read_json(user_file(username, "email.json"), {})
         sender_email = (cfg.get("sender_email") or cfg.get("email") or "").strip()
-        sender_name  = (cfg.get("sender_name")  or cfg.get("display_name") or "Cua Hang Truyen Tranh 2025").strip()
-        smtp_pass    = (cfg.get("smtp_pass")    or cfg.get("app_password") or "").strip()
-        use_starttls = bool(cfg.get("use_starttls", True))
+        sender_name = (cfg.get("sender_name") or cfg.get("display_name") or "Cửa Hàng Truyện Tranh 2025").strip()
+        smtp_pass = (cfg.get("smtp_pass") or cfg.get("app_password") or "").strip()
 
         if not sender_email or not smtp_pass:
             return False, "email.json thiếu sender_email hoặc smtp_pass"
 
-        host = "smtp.gmail.com"; port = 587
-        from email.mime.text import MIMEText
-        from email.utils import formataddr
-        import smtplib
-
+        # Tạo nội dung email
         msg = MIMEText(html_body, "html", "utf-8")
         msg["Subject"] = subject
-        msg["From"]    = formataddr((sender_name, sender_email))
-        msg["To"]      = to_email
+        msg["From"] = formataddr((sender_name, sender_email))
+        msg["To"] = to_email
 
-        with smtplib.SMTP(host, port, timeout=20) as s:
-            s.ehlo()
-            if use_starttls:
-                s.starttls(); s.ehlo()
-            s.login(sender_email, smtp_pass)
-            s.sendmail(sender_email, [to_email], msg.as_string())
+        # Gửi qua Gmail SSL port 465 (ổn định trên Render)
+        import smtplib, ssl
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as server:
+            server.login(sender_email, smtp_pass)
+            server.sendmail(sender_email, [to_email], msg.as_string())
 
         return True, "OK"
+
     except Exception as e:
         print(f"[EMAIL][USERCFG][ERROR] {e}")
         return False, str(e)
