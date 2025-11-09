@@ -14,13 +14,23 @@ def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_em
     Đọc cấu hình từ data/users/<user>/email.json.
     Trả về (ok: bool, msg: str) và KHÔNG raise để tránh 502.
     """
+    # đặt mặc định để nếu lỗi sớm vẫn có biến cho fallback
+    sender_email = ""
+    sender_name  = ""
     try:
         cfg = read_json(user_file(username, "email.json"), {})
         sender_email = (cfg.get("sender_email") or cfg.get("email") or "").strip()
         sender_name  = (cfg.get("sender_name")  or cfg.get("display_name") or "Cửa Hàng Truyện Tranh 2025").strip()
         smtp_pass    = (cfg.get("smtp_pass")    or cfg.get("app_password") or "").strip()
 
+
         if not sender_email or not smtp_pass:
+            # Nếu đã cấu hình RESEND_API_KEY thì dùng Resend thay vì fail
+            if RESEND_API_KEY:
+                fe = sender_email or "onboarding@resend.dev"  # địa chỉ from hợp lệ với Resend
+                fn = sender_name  or "Cửa Hàng Truyện Tranh 2025"
+                ok, msg = send_email_via_resend(fe, fn, to_email, subject, html_body)
+                return (True, "OK(Resend)") if ok else (False, f"SMTP missing → Resend: {msg}")
             return False, "Thiếu sender_email hoặc smtp_pass trong email.json"
 
         from email.mime.text import MIMEText
@@ -34,7 +44,7 @@ def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_em
 
         # GỬI BẰNG SSL 465 (không dùng STARTTLS)
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as s:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=10) as s:
             s.login(sender_email, smtp_pass)
             s.sendmail(sender_email, [to_email], msg.as_string())
 
@@ -509,9 +519,10 @@ def rentals_create():
     manga_id = (request.form.get("manga_id") or "").strip()
     rent_price = format_price(request.form.get("rent_price") or "0")
     # Lấy giờ theo GMT+7 (Việt Nam)
-    now_local = datetime.utcnow() + timedelta(hours=7)
+    now_local = datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)
     start_at = now_local.strftime(DT_FMT)
     due_at = (now_local + timedelta(days=5)).strftime(DT_FMT)
+
 
     cust = next((c for c in customers if c["id"]==customer_id), None)
     mg = next((m for m in manga if m["id"]==manga_id), None)
@@ -546,14 +557,15 @@ def rentals_create():
     if not tpl:
         # fallback template (dùng chuỗi trong ngoặc để tránh lỗi 3-nháy)
         tpl = (
-            "<h3>{{ shop_name }} - Xác nhận thuê truyện</h3>"
-            "<p>Xin chào {{ customer_name }}, bạn đã thuê <b>{{ manga_title }}</b>.</p>"
-            "<ul>"
-            "<li>Giá thuê: {{ rent_price }}</li>"
-            "<li>Ngày thuê: {{ start_at }}</li>"
-            "<li>Đến hạn: {{ due_at }}</li>"
-            "</ul>"
-        )
+    "<h3>{shop_name} - Xác nhận thuê truyện</h3>"
+    "<p>Xin chào {customer_name}, bạn đã thuê <b>{manga_title}</b>.</p>"
+    "<ul>"
+    "<li>Giá thuê: {rent_price}</li>"
+    "<li>Ngày thuê: {start_at}</li>"
+    "<li>Đến hạn: {due_at}</li>"
+    "</ul>"
+)
+
 
     ctx = {
         "customer_name": cust["name"],
