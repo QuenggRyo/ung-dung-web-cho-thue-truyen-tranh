@@ -30,7 +30,7 @@ def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_em
                 fn = sender_name or "Cửa Hàng Truyện Tranh 2025"
                 # gắn Reply-To về email cửa hàng (nếu có)
                 html_plus = html_body
-                ok, msg = send_email_via_resend(fe, fn, to_email, subject, html_plus, reply_to=sender_email or "")
+                ok, msg = send_email_via_resend(fe, fn, to_email, subject, html_plus)
                 return (True, "OK(Resend)") if ok else (False, f"SMTP missing → Resend: {msg}")
             return False, "Thiếu sender_email hoặc smtp_pass trong email.json"
 
