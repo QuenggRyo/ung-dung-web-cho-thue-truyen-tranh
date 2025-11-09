@@ -5,6 +5,45 @@ from email.mime.text import MIMEText
 from email.utils import formataddr
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, jsonify # type: ignore
 
+# ========= Gửi mail theo cấu hình đã lưu của user =========
+def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_email: str):
+    """
+    Đọc cấu hình từ email.json của user và gửi mail.
+    Trả về (ok: bool, message: str). Không raise để tránh crash.
+    """
+    try:
+        cfg = read_json(user_file(username, "email.json"), {})
+        sender_email = (cfg.get("sender_email") or cfg.get("email") or "").strip()
+        sender_name  = (cfg.get("sender_name")  or cfg.get("display_name") or "Cua Hang Truyen Tranh 2025").strip()
+        smtp_pass    = (cfg.get("smtp_pass")    or cfg.get("app_password") or "").strip()
+        use_starttls = bool(cfg.get("use_starttls", True))
+
+        if not sender_email or not smtp_pass:
+            return False, "email.json thiếu sender_email hoặc smtp_pass"
+
+        host = "smtp.gmail.com"; port = 587
+        from email.mime.text import MIMEText
+        from email.utils import formataddr
+        import smtplib
+
+        msg = MIMEText(html_body, "html", "utf-8")
+        msg["Subject"] = subject
+        msg["From"]    = formataddr((sender_name, sender_email))
+        msg["To"]      = to_email
+
+        with smtplib.SMTP(host, port, timeout=20) as s:
+            s.ehlo()
+            if use_starttls:
+                s.starttls(); s.ehlo()
+            s.login(sender_email, smtp_pass)
+            s.sendmail(sender_email, [to_email], msg.as_string())
+
+        return True, "OK"
+    except Exception as e:
+        print(f"[EMAIL][USERCFG][ERROR] {e}")
+        return False, str(e)
+# ==========================================================
+
 # ====== Cấu hình và hàm gửi email an toàn ======
 EMAIL_ENABLED    = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
 SMTP_HOST        = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -471,7 +510,7 @@ def rentals_create():
     rentals.append(rec)
     write_json(user_file(username, "rentals.json"), rentals)
 
-    # ------ Gửi email theo mẫu người dùng (không để crash) ------
+        # ------ Gửi email theo mẫu người dùng (không để crash) ------
     cfg = read_json(user_file(username, "email.json"), {})
     tpl = cfg.get("tpl_rent")
     if not tpl:
@@ -495,19 +534,16 @@ def rentals_create():
         "shop_name": session.get("shop_name", "Cửa hàng"),
     }
 
+    # TẠO subject + html (bắt buộc có trước khi gửi)
     subject = f"[{session.get('shop_name','Cửa hàng')}] Xác nhận thuê truyện"
     html = render_template_string(tpl, **ctx)
 
-    try:
-        ok, msg = safe_send_email(cust["email"], subject, html)
-        if not ok:
-            print(f"[EMAIL][WARN] {msg}")
-            flash("Đã tạo giao dịch, nhưng chưa gửi được email thông báo.", "warning")
-    except Exception as e:
-        # Phòng hờ: không bao giờ để crash vì email
-        print(f"[EMAIL][EXC] {e}")
-        flash("Đã tạo giao dịch, nhưng không gửi được email.", "warning")
-    # ------------------------------------------------------------
+    # Gửi mail theo cấu hình của user trong email.json
+    to_email = str(cust.get("email", "")).strip()
+    ok, msg = send_email_using_user_cfg(username, subject, html, to_email)
+    if not ok:
+        print(f"[EMAIL][WARN] {msg}")
+        flash("Đã tạo giao dịch, nhưng chưa gửi được email thông báo.", "warning")
 
     flash("Đã tạo giao dịch thuê.", "success")
     return redirect(url_for("rentals_list"))
