@@ -726,7 +726,7 @@ def email_settings():
             "smtp_pass": (request.form.get("smtp_pass") or "").strip(),
             "sender_name": (request.form.get("sender_name") or "").strip(),
             "sender_email": (request.form.get("sender_email") or "").strip(),
-            "use_tls": True,  # luôn dùng STARTTLS với Gmail
+            "use_tls": request.form.get("use_tls") == "on",
             "tpl_rent": (request.form.get("tpl_rent") or "").strip(),
             "tpl_return": (request.form.get("tpl_return") or "").strip(),
         }
