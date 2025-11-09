@@ -81,7 +81,7 @@ USERS_FILE = os.path.join(DATA_DIR, "users.json")
 DT_FMT = "%d-%m-%Y %H:%M:%S"
 
 def now_str():
-    return datetime.now().strftime(DT_FMT)
+    return (datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)).strftime(DT_FMT)
 
 def parse_dt(s):
     return datetime.strptime(s, DT_FMT)
@@ -565,12 +565,13 @@ def rentals_return(rid):
         flash("Không tìm thấy giao dịch hoặc đã trả.", "danger")
         return redirect(url_for("rentals_list"))
     due = parse_dt(found["due_at"])
-    days_late = (datetime.now() - due).days
+    now_local = datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)
+    days_late = (now_local - due).days
     late_fee = 0
     if days_late > 0:
         late_fee = days_late * 10000
     found["late_fee"] = format_price(str(late_fee))
-    found["returned_at"] = now_str()
+    found["returned_at"] = now_local.strftime(DT_FMT)
     write_json(user_file(username, "rentals.json"), rentals)
 
     adjust_stock(username, found["manga_id"], +1)
@@ -591,7 +592,11 @@ def rentals_return(rid):
         }
         subject = f"[{session.get('shop_name','Cửa hàng')}] Xác nhận trả truyện"
         html = render_tpl(tpl, ctx)
-        send_email_if_configured(username, subject, html, cust["email"])
+
+        ok, msg = send_email_using_user_cfg(username, subject, html, cust["email"])
+        if not ok:
+            print(f"[EMAIL][WARN] {msg}")
+            flash("Đã cập nhật trả truyện, nhưng chưa gửi được email xác nhận.", "warning")
 
     flash("Đã cập nhật trả truyện.", "success")
     return redirect(url_for("rentals_list"))
