@@ -1,125 +1,12 @@
 # app.py
-import os, json, uuid, smtplib, hashlib, ssl, requests # type: ignore
+import os, json, uuid, smtplib, hashlib
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, jsonify # type: ignore
-
-TZ_OFFSET_HOURS = int(os.getenv("TZ_OFFSET_HOURS", "7"))  # GMT+7
-
-# ========= Gửi mail theo cấu hình đã lưu của user =========
-def send_email_using_user_cfg(username: str, subject: str, html_body: str, to_email: str):
-    """
-    Gửi email Gmail bằng App Password qua SSL 465 (ổn định trên Render).
-    Đọc cấu hình từ data/users/<user>/email.json.
-    Trả về (ok: bool, msg: str) và KHÔNG raise để tránh 502.
-    """
-    # đặt mặc định để nếu lỗi sớm vẫn có biến cho fallback
-    sender_email = ""
-    sender_name  = ""
-    try:
-        cfg = read_json(user_file(username, "email.json"), {})
-        sender_email = (cfg.get("sender_email") or cfg.get("email") or "").strip()
-        sender_name  = (cfg.get("sender_name")  or cfg.get("display_name") or "Cửa Hàng Truyện Tranh 2025").strip()
-        smtp_pass    = (cfg.get("smtp_pass")    or cfg.get("app_password") or "").strip()
-
-
-        if not sender_email or not smtp_pass:
-            if RESEND_API_KEY:
-                fe = os.getenv("RESEND_FROM", "onboarding@resend.dev")  # from hợp lệ với Resend
-                fn = sender_name or "Cửa Hàng Truyện Tranh 2025"
-                # gắn Reply-To về email cửa hàng (nếu có)
-                html_plus = html_body
-                ok, msg = send_email_via_resend(fe, fn, to_email, subject, html_plus)
-                return (True, "OK(Resend)") if ok else (False, f"SMTP missing → Resend: {msg}")
-            return False, "Thiếu sender_email hoặc smtp_pass trong email.json"
-
-        from email.mime.text import MIMEText
-        from email.utils import formataddr
-        import smtplib, ssl
-
-        msg = MIMEText(html_body, "html", "utf-8")
-        msg["Subject"] = subject
-        msg["From"]    = formataddr((sender_name, sender_email))
-        msg["To"]      = to_email
-
-        # GỬI BẰNG SSL 465 (không dùng STARTTLS)
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=10) as s:
-            s.login(sender_email, smtp_pass)
-            s.sendmail(sender_email, [to_email], msg.as_string())
-
-        return True, "OK"
-    except Exception as e:
-        print(f"[EMAIL][USERCFG][ERROR] {e}")
-        # fallback HTTPS: Resend (nếu có API key)
-        fe = os.getenv("RESEND_FROM", "onboarding@resend.dev")
-        ok2, msg2 = send_email_via_resend(
-            fe,
-            sender_name or "Cửa Hàng Truyện Tranh 2025",
-            to_email,
-            subject,
-            html_body
-        )
-        if ok2:
-            return True, "OK(Resend)"
-        return False, f"SMTP fail → {msg2}"
-    
-# ==========================================================
-
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-
-def send_email_via_resend(from_email, from_name, to_email, subject, html):
-    if not RESEND_API_KEY:
-        return False, "RESEND_API_KEY not set"
-    try:
-        r = requests.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={
-                "from": f"{from_name} <{from_email}>",
-                "to": [to_email],
-                "subject": subject,
-                "html": html,
-            },
-            timeout=15,
-        )
-        if 200 <= r.status_code < 300:
-            return True, "OK"
-        return False, f"Resend {r.status_code}: {r.text}"
-    except Exception as e:
-        return False, str(e)
-    
-# ====== Cấu hình và hàm gửi email an toàn ======
-EMAIL_ENABLED    = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
-SMTP_HOST        = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT        = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER        = os.getenv("SMTP_USER", "")
-SMTP_PASS        = os.getenv("SMTP_PASS", "")
-SMTP_FROM_NAME   = os.getenv("SMTP_FROM_NAME", "Cua Hang Truyen Tranh 2025")
-SMTP_FROM_EMAIL  = os.getenv("SMTP_FROM_EMAIL", SMTP_USER or "no-reply@example.com")
-
-def safe_send_email(to_email: str, subject: str, html_body: str):
-    """Gửi mail an toàn: nếu lỗi thì không crash"""
-    if not EMAIL_ENABLED:
-        return True, "Email disabled"
-    try:
-        msg = MIMEText(html_body, "html", "utf-8")
-        msg["Subject"] = subject
-        msg["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM_EMAIL))
-        msg["To"] = to_email
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
-            s.ehlo()
-            s.starttls()
-            s.login(SMTP_USER, SMTP_PASS)
-            s.sendmail(SMTP_FROM_EMAIL, [to_email], msg.as_string())
-        return True, "OK"
-    except Exception as e:
-        return False, str(e)
-# ===============================================
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify # type: ignore
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret")
+app.secret_key = "super-secret-change-me"  # đổi khi deploy
 
 # ================== Cấu hình & tiện ích ==================
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -127,7 +14,7 @@ USERS_FILE = os.path.join(DATA_DIR, "users.json")
 DT_FMT = "%d-%m-%Y %H:%M:%S"
 
 def now_str():
-    return (datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)).strftime(DT_FMT)
+    return datetime.now().strftime(DT_FMT)
 
 def parse_dt(s):
     return datetime.strptime(s, DT_FMT)
@@ -517,6 +404,23 @@ def rentals_list():
     unread_count = count_unread_notifications(username)
     return render_template("rentals_list.html", rentals=rentals, q=q, unread_count=unread_count)
 
+@app.route("/api/manga-price")
+def api_manga_price():
+    # Bắt buộc đăng nhập
+    if require_login():
+        return require_login()
+
+    username = get_current_username()
+    manga_id = (request.args.get("manga_id") or "").strip()
+
+    items = read_json(user_file(username, "manga.json"), [])
+    mg = next((m for m in items if m.get("id") == manga_id), None)
+
+    if not mg:
+        return jsonify({"ok": False})
+
+    return jsonify({"ok": True, "price": mg.get("rent_price", "0")})
+
 @app.route("/rentals/create", methods=["POST"])
 def rentals_create():
     if require_login(): return require_login()
@@ -526,11 +430,8 @@ def rentals_create():
     customer_id = (request.form.get("customer_id") or "").strip()
     manga_id = (request.form.get("manga_id") or "").strip()
     rent_price = format_price(request.form.get("rent_price") or "0")
-    # Lấy giờ theo GMT+7 (Việt Nam)
-    now_local = datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)
-    start_at = now_local.strftime(DT_FMT)
-    due_at = (now_local + timedelta(days=5)).strftime(DT_FMT)
-
+    start_at = now_str()
+    due_at = (datetime.now() + timedelta(days=5)).strftime(DT_FMT)
 
     cust = next((c for c in customers if c["id"]==customer_id), None)
     mg = next((m for m in manga if m["id"]==manga_id), None)
@@ -559,41 +460,23 @@ def rentals_create():
     rentals.append(rec)
     write_json(user_file(username, "rentals.json"), rentals)
 
-    # ------ Gửi email theo mẫu người dùng (không để crash) ------
+    # ------ Gửi email theo mẫu người dùng ------
     cfg = read_json(user_file(username, "email.json"), {})
-    tpl = cfg.get("tpl_rent")
-    if not tpl:
-        # fallback template (dùng chuỗi trong ngoặc để tránh lỗi 3-nháy)
-        tpl = (
-    "<h3>{shop_name} - Xác nhận thuê truyện</h3>"
-    "<p>Xin chào {customer_name}, bạn đã thuê <b>{manga_title}</b>.</p>"
-    "<ul>"
-    "<li>Giá thuê: {rent_price}</li>"
-    "<li>Ngày thuê: {start_at}</li>"
-    "<li>Đến hạn: {due_at}</li>"
-    "</ul>"
-)
-
-
+    tpl = cfg.get("tpl_rent") or default_email_cfg(session.get('shop_name','')).get("tpl_rent")
     ctx = {
         "customer_name": cust["name"],
         "manga_title": mg["title"],
         "rent_price": rent_price,
         "start_at": start_at,
         "due_at": due_at,
-        "shop_name": session.get("shop_name", "Cửa hàng"),
+        "return_at": "",
+        "late_fee": "0",
+        "shop_name": session.get("shop_name","Cửa hàng")
     }
-
-    # TẠO subject + html (bắt buộc có trước khi gửi)
     subject = f"[{session.get('shop_name','Cửa hàng')}] Xác nhận thuê truyện"
     html = render_tpl(tpl, ctx)
-
-    # Gửi mail theo cấu hình của user trong email.json
-    to_email = str(cust.get("email", "")).strip()
-    ok, msg = send_email_using_user_cfg(username, subject, html, to_email)
-    if not ok:
-        print(f"[EMAIL][WARN] {msg}")
-        flash("Đã tạo giao dịch, nhưng chưa gửi được email thông báo.", "warning")
+    send_email_if_configured(username, subject, html, cust["email"])
+    # -------------------------------------------
 
     flash("Đã tạo giao dịch thuê.", "success")
     return redirect(url_for("rentals_list"))
@@ -613,13 +496,12 @@ def rentals_return(rid):
         flash("Không tìm thấy giao dịch hoặc đã trả.", "danger")
         return redirect(url_for("rentals_list"))
     due = parse_dt(found["due_at"])
-    now_local = datetime.utcnow() + timedelta(hours=TZ_OFFSET_HOURS)
-    days_late = (now_local - due).days
+    days_late = (datetime.now() - due).days
     late_fee = 0
     if days_late > 0:
         late_fee = days_late * 10000
     found["late_fee"] = format_price(str(late_fee))
-    found["returned_at"] = now_local.strftime(DT_FMT)
+    found["returned_at"] = now_str()
     write_json(user_file(username, "rentals.json"), rentals)
 
     adjust_stock(username, found["manga_id"], +1)
@@ -640,11 +522,7 @@ def rentals_return(rid):
         }
         subject = f"[{session.get('shop_name','Cửa hàng')}] Xác nhận trả truyện"
         html = render_tpl(tpl, ctx)
-
-        ok, msg = send_email_using_user_cfg(username, subject, html, cust["email"])
-        if not ok:
-            print(f"[EMAIL][WARN] {msg}")
-            flash("Đã cập nhật trả truyện, nhưng chưa gửi được email xác nhận.", "warning")
+        send_email_if_configured(username, subject, html, cust["email"])
 
     flash("Đã cập nhật trả truyện.", "success")
     return redirect(url_for("rentals_list"))
@@ -785,7 +663,7 @@ def email_settings():
             "smtp_pass": (request.form.get("smtp_pass") or "").strip(),
             "sender_name": (request.form.get("sender_name") or "").strip(),
             "sender_email": (request.form.get("sender_email") or "").strip(),
-            "use_tls": request.form.get("use_tls") == "on",
+            "use_tls": True,  # luôn dùng STARTTLS với Gmail
             "tpl_rent": (request.form.get("tpl_rent") or "").strip(),
             "tpl_return": (request.form.get("tpl_return") or "").strip(),
         }

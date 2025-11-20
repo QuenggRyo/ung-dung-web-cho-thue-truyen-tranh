@@ -146,6 +146,7 @@
         <div class="mb-2">
           <label class="form-label">Chọn truyện (nhập ID hoặc chọn)</label>
           <input
+            id="manga_id_input"
             name="manga_id"
             class="form-control"
             list="lstManga"
@@ -165,6 +166,7 @@
         <div class="mb-2">
           <label class="form-label">Giá thuê</label>
           <input
+            id="rent_price_input"
             name="rent_price"
             class="form-control"
             placeholder="ví dụ 10.000"
@@ -187,4 +189,30 @@
     </form>
   </div>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const mangaInput = document.getElementById("manga_id_input");
+    const priceInput = document.getElementById("rent_price_input");
+
+    if (!mangaInput || !priceInput) return;
+
+    mangaInput.addEventListener("change", function () {
+      const id = mangaInput.value.trim();
+      if (!id) return;
+
+      fetch(`/api/manga-price?manga_id=${encodeURIComponent(id)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok && data.price) {
+            // Điền giá thuê đúng theo truyện đã chọn
+            priceInput.value = data.price;
+          }
+        })
+        .catch((err) => {
+          console.error("Lỗi lấy giá thuê:", err);
+        });
+    });
+  });
+</script>
 {% endblock %}
