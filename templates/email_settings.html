@@ -1,114 +1,185 @@
-{% extends "base.html" %} {% block title %}Cấu hình email{% endblock %} {% block
+{% extends "base.html" %} {% block title %}Cấu hình{% endblock %} {% block
 content %}
+
 <div class="container py-4">
-  <h2 class="mb-4">Cấu hình email</h2>
+  <h2 class="mb-4">Cấu hình</h2>
 
-  <form method="post">
-    <div class="row g-3">
-      <!-- Chỉ giữ các mục cần thiết -->
-      <div class="col-md-6">
-        <label class="form-label">Tên hiển thị</label>
-        <input
-          name="sender_name"
-          type="text"
-          class="form-control"
-          value="{{ cfg.get('sender_name','') }}"
-          placeholder="VD: Cửa Hàng Truyện Tranh 2025"
-          autocapitalize="off"
-          spellcheck="false"
-        />
-      </div>
+  <!-- ================== CẤU HÌNH CỬA HÀNG ================== -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <strong>Cấu hình cửa hàng</strong>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        <input type="hidden" name="action" value="shop" />
 
-      <div class="col-md-6">
-        <label class="form-label">Email gửi đi</label>
-        <input
-          name="sender_email"
-          type="email"
-          class="form-control"
-          value="{{ cfg.get('sender_email','') }}"
-          placeholder="you@gmail.com"
-          autocapitalize="off"
-          spellcheck="false"
-          inputmode="email"
-        />
-      </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Tên cửa hàng</label>
+            <input
+              type="text"
+              name="shop_name"
+              class="form-control"
+              value="{{ shop_cfg.shop_name }}"
+              placeholder="VD: Cửa Hàng Truyện Tranh 2025"
+              required
+            />
+          </div>
 
-      <div class="col-md-6">
-        <label class="form-label">SMTP Pass (App Password)</label>
-        <input
-          name="smtp_pass"
-          type="password"
-          class="form-control"
-          value="{{ cfg.get('smtp_pass','') }}"
-          placeholder="Mật khẩu ứng dụng 16 ký tự của Gmail"
-          autocomplete="new-password"
-        />
-      </div>
+          <div class="col-md-3">
+            <label class="form-label">Số ngày cho thuê mặc định</label>
+            <input
+              type="number"
+              name="default_rent_days"
+              class="form-control"
+              min="1"
+              value="{{ shop_cfg.default_rent_days }}"
+            />
+            <div class="form-text">
+              Chỉ áp dụng cho các giao dịch thuê tạo sau khi lưu.
+            </div>
+          </div>
 
-      <div class="col-md-6 d-flex align-items-end">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" id="use_tls"
-          name="use_tls" {% if cfg.get('use_tls', True) %}checked{% endif %}>
-          <label class="form-check-label" for="use_tls">Dùng STARTTLS</label>
+          <div class="col-md-3">
+            <label class="form-label">Phí trễ mỗi ngày (VND)</label>
+            <input
+              type="number"
+              name="late_fee_per_day"
+              class="form-control"
+              min="0"
+              step="1000"
+              value="{{ shop_cfg.late_fee_per_day }}"
+            />
+            <div class="form-text">
+              Mỗi ngày trễ sẽ cộng theo mức này cho giao dịch mới.
+            </div>
+          </div>
         </div>
-      </div>
+
+        <div class="mt-3">
+          <button type="submit" class="btn btn-success">
+            Lưu cấu hình cửa hàng
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====================== CẤU HÌNH EMAIL ====================== -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <strong>Cấu hình email</strong>
     </div>
 
-    <hr class="my-4" />
+    <div class="card-body p-4">
+      <form method="post">
+        <input type="hidden" name="action" value="email" />
 
-    <div class="mb-3">
-      <label class="form-label">Mẫu email <b>khi thuê</b></label>
-      <textarea
-        name="tpl_rent"
-        class="form-control"
-        rows="7"
-        placeholder="HTML của mẫu email khi thuê"
-      >
+        <!-- CỤM THÔNG TIN EMAIL -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Tên hiển thị</label>
+            <input
+              name="sender_name"
+              type="text"
+              class="form-control"
+              value="{{ cfg.get('sender_name','') }}"
+              placeholder="VD: Cửa Hàng Truyện Tranh 2025"
+            />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Email gửi đi</label>
+            <input
+              name="sender_email"
+              type="email"
+              class="form-control"
+              value="{{ cfg.get('sender_email','') }}"
+              placeholder="you@gmail.com"
+            />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">SMTP Pass (App Password)</label>
+            <input
+              name="smtp_pass"
+              type="password"
+              class="form-control"
+              value="{{ cfg.get('smtp_pass','') }}"
+              placeholder="Mật khẩu ứng dụng 16 ký tự của Gmail"
+            />
+          </div>
+        </div>
+
+        <hr class="my-4" />
+
+        <!-- MẪU EMAIL KHI THUÊ -->
+        <div class="mt-3">
+          <label class="form-label fw-semibold"
+            >Mẫu email <b>khi thuê</b></label
+          >
+          <textarea
+            name="tpl_rent"
+            class="form-control"
+            rows="8"
+            placeholder="HTML của mẫu email khi thuê"
+          >
 {{ cfg.get('tpl_rent','') }}</textarea
-      >
-      <div class="form-text">
-        Biến có thể dùng: <code>{customer_name}</code>,
-        <code>{manga_title}</code>, <code>{rent_price}</code>,
-        <code>{start_at}</code>, <code>{due_at}</code>,
-        <code>{shop_name}</code>.
-      </div>
-    </div>
+          >
 
-    <div class="mb-3">
-      <label class="form-label">Mẫu email <b>khi trả</b></label>
-      <textarea
-        name="tpl_return"
-        class="form-control"
-        rows="7"
-        placeholder="HTML của mẫu email khi trả"
-      >
+          <div class="form-text mt-1">
+            Biến có thể dùng:
+            <code>{customer_name}</code>, <code>{manga_title}</code>,
+            <code>{rent_price}</code>, <code>{start_at}</code>,
+            <code>{due_at}</code>, <code>{shop_name}</code>.
+          </div>
+        </div>
+
+        <!-- MẪU EMAIL KHI TRẢ -->
+        <div class="mt-4">
+          <label class="form-label fw-semibold">Mẫu email <b>khi trả</b></label>
+          <textarea
+            name="tpl_return"
+            class="form-control"
+            rows="8"
+            placeholder="HTML của mẫu email khi trả"
+          >
 {{ cfg.get('tpl_return','') }}</textarea
-      >
-      <div class="form-text">
-        Biến có thể dùng: <code>{customer_name}</code>,
-        <code>{manga_title}</code>, <code>{start_at}</code>,
-        <code>{due_at}</code>, <code>{return_at}</code>,
-        <code>{late_fee}</code>, <code>{shop_name}</code>.
-      </div>
-    </div>
+          >
 
-    <div class="d-flex gap-2 mt-3">
-      <button type="submit" class="btn btn-primary">Lưu cấu hình</button>
-      <a
-        href="{{ url_for('email_settings') }}?reset_tpl=1"
-        class="btn btn-outline-secondary"
-      >
-        Khôi phục mẫu mặc định
-      </a>
-    </div>
-  </form>
+          <div class="form-text mt-1">
+            Biến có thể dùng:
+            <code>{customer_name}</code>, <code>{manga_title}</code>,
+            <code>{start_at}</code>, <code>{due_at}</code>,
+            <code>{return_at}</code>, <code>{late_fee}</code>,
+            <code>{shop_name}</code>.
+          </div>
+        </div>
 
+        <!-- NÚT LƯU / RESET -->
+        <div class="mt-3 d-flex gap-2">
+          <button type="submit" class="btn btn-success">
+            Lưu cấu hình email
+          </button>
+
+          <a
+            class="btn btn-outline-secondary"
+            href="{{ url_for('email_settings', reset_tpl=1) }}"
+          >
+            Khôi phục mẫu mặc định
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====================== GHI CHÚ ====================== -->
   <div class="alert alert-secondary mt-4" role="alert">
-    <b>Ghi chú:</b> Hệ thống đã cố định gửi qua Gmail
-    (<code>smtp.gmail.com:587</code>, STARTTLS). Bạn chỉ cần nhập
-    <i>Email gửi đi</i> và <i>SMTP Pass</i> (mật khẩu ứng dụng 16 ký tự). Hướng
-    dẫn lấy App Password:
-    <i>Cài đặt &gt; Bảo mật &gt; Xác minh 2 bước &gt; Mật khẩu ứng dụng</i>.
+    <b>Ghi chú:</b>
+    Hệ thống đã cố định gửi qua Gmail (<code>smtp.gmail.com:587</code>,
+    STARTTLS). Chỉ cần nhập <i>Email gửi đi</i> và <i>SMTP Pass</i> (mật khẩu
+    ứng dụng 16 ký tự).
   </div>
 </div>
+
 {% endblock %}

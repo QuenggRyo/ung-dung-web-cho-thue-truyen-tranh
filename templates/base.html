@@ -3,9 +3,7 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8" />
-    <title>
-      {{ session.get('shop_name','Hệ thống quản lý & cho thuê truyện tranh') }}
-    </title>
+    <title>{{ shop_cfg.shop_name }}</title>
     <link
       rel="icon"
       type="image/png"
@@ -26,8 +24,8 @@
       }
       .badge-noti .count {
         position: absolute;
-        top: -6px;
-        right: -10px;
+        top: -4px; /* sát xuống gần chữ */
+        right: -4px; /* dịch vào gần chữ hơn */
         background: #dc3545;
         color: #fff;
         border-radius: 999px;
@@ -315,15 +313,14 @@
       /* === Căn giữa nút Đăng xuất trong menu mobile === */
       @media (max-width: 991.98px) {
         .navbar-collapse .btn-outline-dark {
-          display: inline-block;
-          width: auto; /* Chỉ dài theo nội dung */
-          margin: 12px auto 8px auto; /* Căn giữa theo chiều ngang */
+          display: block;
+          width: fit-content; /* nút chỉ rộng theo chữ */
+          margin: 12px auto 8px auto; /* auto = căn giữa */
           padding: 8px 18px;
           border-radius: 8px;
           text-align: center;
-          position: relative;
-          left: 50%;
-          transform: translateX(-50%); /* Căn giữa tuyệt đối */
+          position: static; /* bỏ left/transform */
+          transform: none;
         }
       }
     </style>
@@ -335,8 +332,7 @@
     >
       <div class="container">
         <a class="navbar-brand fw-bold" href="{{ url_for('manga_list') }}"
-          >{{ session.get('shop_name','Hệ thống quản lý & cho thuê truyện
-          tranh') }}</a
+          >{{ shop_cfg.shop_name }}</a
         >
         {% if session.get("username") %}
         <button
@@ -352,7 +348,7 @@
         </button>
 
         <div class="collapse navbar-collapse mt-2 mt-lg-0" id="mainNav">
-          <ul class="navbar-nav me-auto ms-lg-3">
+          <ul class="navbar-nav ms-auto me-lg-3 gap-lg-2">
             <li class="nav-item">
               <a
                 class="nav-link{{ ' active' if cur.startswith('/manga') }}"
@@ -395,12 +391,12 @@
               <a
                 class="nav-link{{ ' active' if cur.startswith('/email-settings') }}"
                 href="{{ url_for('email_settings') }}"
-                >Cấu hình email</a
+                >Cấu hình</a
               >
             </li>
           </ul>
 
-          <div class="ms-lg-auto">
+          <div class="d-flex align-items-center">
             <a class="btn btn-outline-dark" href="{{ url_for('logout') }}"
               >Đăng xuất</a
             >

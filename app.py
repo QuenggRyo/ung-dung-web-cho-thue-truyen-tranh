@@ -146,8 +146,69 @@ def count_unread_notifications(username):
     lst = read_json(user_file(username, "notifications.json"), [])
     return sum(1 for n in lst if not n.get("read"))
 
+
+# ===== Cấu hình cửa hàng (per user) =====
+def default_shop_cfg(username: str):
+    """
+    Giá trị mặc định:
+      - shop_name: lấy từ session hoặc users.json, nếu không có thì dùng chuỗi mặc định
+      - default_rent_days: 5 ngày
+      - late_fee_per_day: 10.000 VND
+    """
+    shop_name = session.get("shop_name", "")
+    if not shop_name and username:
+        users = read_json(USERS_FILE, [])
+        u = next((u for u in users if u.get("username") == username), None)
+        if u:
+            shop_name = u.get("shop_name", "")
+
+    if not shop_name:
+        shop_name = "Cửa Hàng Truyện Tranh 2025"
+
+    return {
+        "shop_name": shop_name,
+        "default_rent_days": 5,
+        "late_fee_per_day": 10000,
+    }
+
+
+def read_shop_cfg(username: str):
+    """
+    Đọc shop_config.json của tài khoản.
+    Nếu chưa có file thì sinh ra với giá trị mặc định.
+    """
+    path = user_file(username, "shop_config.json")
+    cfg = read_json(path, {})
+    base = default_shop_cfg(username)
+    for k, v in base.items():
+        cfg.setdefault(k, v)
+    write_json(path, cfg)
+    return cfg
+
+
+@app.context_processor
+def inject_shop_cfg():
+    """
+    Bơm biến shop_cfg vào tất cả template:
+      - shop_cfg.shop_name
+      - shop_cfg.default_rent_days
+      - shop_cfg.late_fee_per_day
+    """
+    username = get_current_username()
+    if not username:
+        return {
+            "shop_cfg": {
+                "shop_name": "Hệ thống quản lý & cho thuê truyện tranh",
+                "default_rent_days": 5,
+                "late_fee_per_day": 10000,
+            }
+        }
+    return {"shop_cfg": read_shop_cfg(username)}
+
+
 # ===== Đồng bộ khi sửa =====
 def propagate_manga_changes(username, manga_obj):
+
     rpath = user_file(username, "rentals.json")
     rentals = read_json(rpath, [])
     changed = False
@@ -394,15 +455,59 @@ def customers_delete(cid):
 # ================== Thuê / Trả truyện ==================
 @app.route("/rentals")
 def rentals_list():
-    if require_login(): return require_login()
+    if require_login(): 
+        return require_login()
     q = (request.args.get("q") or "").strip().lower()
     username = get_current_username()
+
     rentals = read_json(user_file(username, "rentals.json"), [])
-    rentals.sort(key=lambda x: x.get("created_at",""), reverse=True)
+
+        # ===== TÍNH LẠI PHÍ TRỄ CHO CÁC GIAO DỊCH CHƯA TRẢ =====
+    now = datetime.now()
+    shop_cfg = read_shop_cfg(username)
+    default_per_day = int(shop_cfg.get("late_fee_per_day", 10000) or 10000)
+
+    for r in rentals:
+        # Chỉ tính cho những giao dịch chưa trả
+        if not r.get("returned_at"):
+            try:
+                due = parse_dt(r["due_at"])
+            except Exception:
+                # Nếu dữ liệu ngày bị lỗi thì bỏ qua để không crash
+                continue
+
+            days_late = (now - due).days
+            late_fee = 0
+            if days_late > 0:
+                # Lấy phí trễ/ngày từ giao dịch, nếu không có thì dùng cấu hình hiện tại
+                per_day = r.get("late_fee_per_day", default_per_day)
+                try:
+                    per_day_int = int(per_day)
+                except Exception:
+                    per_day_int = default_per_day
+
+                if per_day_int < 0:
+                    per_day_int = 0
+
+                late_fee = days_late * per_day_int
+
+            # Ghi lại vào object để hiển thị ra bảng
+            r["late_fee"] = format_price(str(late_fee))
+    # =======================================================
+
+    rentals.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     if q:
-        rentals = [r for r in rentals if q in r["manga_title"].lower() or q in r["customer_name"].lower()]
+        rentals = [
+            r for r in rentals
+            if q in r["manga_title"].lower() or q in r["customer_name"].lower()
+        ]
     unread_count = count_unread_notifications(username)
-    return render_template("rentals_list.html", rentals=rentals, q=q, unread_count=unread_count)
+    return render_template(
+        "rentals_list.html",
+        rentals=rentals,
+        q=q,
+        unread_count=unread_count,
+    )
 
 @app.route("/api/manga-price")
 def api_manga_price():
@@ -429,9 +534,15 @@ def rentals_create():
     manga = read_json(user_file(username, "manga.json"), [])
     customer_id = (request.form.get("customer_id") or "").strip()
     manga_id = (request.form.get("manga_id") or "").strip()
+        # Đọc cấu hình cửa hàng (số ngày thuê + phí trễ)
+    shop_cfg = read_shop_cfg(username)
+    rent_days = int(shop_cfg.get("default_rent_days", 5) or 5)
+    if rent_days < 1:
+        rent_days = 1
+
     rent_price = format_price(request.form.get("rent_price") or "0")
     start_at = now_str()
-    due_at = (datetime.now() + timedelta(days=5)).strftime(DT_FMT)
+    due_at = (datetime.now() + timedelta(days=rent_days)).strftime(DT_FMT)
 
     cust = next((c for c in customers if c["id"]==customer_id), None)
     mg = next((m for m in manga if m["id"]==manga_id), None)
@@ -452,6 +563,8 @@ def rentals_create():
         "customer_name": cust["name"],
         "rent_price": rent_price,
         "late_fee": "0",
+        # lưu phí trễ theo ngày tại thời điểm tạo giao dịch
+        "late_fee_per_day": int(shop_cfg.get("late_fee_per_day", 10000) or 0),
         "created_at": start_at,
         "due_at": due_at,
         "returned_at": "",
@@ -492,16 +605,34 @@ def rentals_return(rid):
         if r["id"] == rid and not r.get("returned_at"):
             found = r
             break
+
     if not found:
         flash("Không tìm thấy giao dịch hoặc đã trả.", "danger")
         return redirect(url_for("rentals_list"))
-    due = parse_dt(found["due_at"])
-    days_late = (datetime.now() - due).days
-    late_fee = 0
-    if days_late > 0:
-        late_fee = days_late * 10000
+    else:
+        # chỉ chạy khi tìm thấy giao dịch
+        shop_cfg = read_shop_cfg(username)
+        default_per_day = int(shop_cfg.get("late_fee_per_day", 10000) or 10000)
+
+        due = parse_dt(found["due_at"])
+        days_late = (datetime.now() - due).days
+
+        late_fee = 0
+        if days_late > 0:
+            per_day = found.get("late_fee_per_day", default_per_day)
+            try:
+                per_day_int = int(per_day)
+            except Exception:
+                per_day_int = default_per_day
+
+            if per_day_int < 0:
+                per_day_int = 0
+
+            late_fee = days_late * per_day_int
+
     found["late_fee"] = format_price(str(late_fee))
     found["returned_at"] = now_str()
+
     write_json(user_file(username, "rentals.json"), rentals)
 
     adjust_stock(username, found["manga_id"], +1)
@@ -530,18 +661,30 @@ def rentals_return(rid):
 # ================== Thông báo ==================
 @app.route("/notifications", methods=["GET","POST"])
 def notifications():
-    if require_login(): return require_login()
+    if require_login(): 
+        return require_login()
     username = get_current_username()
     notifs_path = user_file(username, "notifications.json")
     notifs = read_json(notifs_path, [])
+
     if request.method == "POST":
         nid = request.args.get("read")
-        for n in notifs:
-            if n["id"] == nid:
+
+        if nid == "all":
+            # Đánh dấu tất cả thông báo là đã đọc
+            for n in notifs:
                 n["read"] = True
+        else:
+            # Đánh dấu 1 thông báo (double-click như cũ)
+            for n in notifs:
+                if n["id"] == nid:
+                    n["read"] = True
+                    break
+
         write_json(notifs_path, notifs)
         return jsonify({"ok": True})
-    notifs.sort(key=lambda x: x.get("created_at",""), reverse=True)
+
+    notifs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     unread_count = count_unread_notifications(username)
     return render_template("notifications.html", notifs=notifs, unread_count=unread_count)
 
@@ -568,7 +711,7 @@ def stats():
         if not date_to:
             date_to = today
 
-    # Hàm kiểm tra giao dịch có nằm trong khoảng ngày hay không
+        # Hàm kiểm tra giao dịch có nằm trong khoảng ngày thuê hay không (created_at)
     def in_range(rec):
         try:
             t = parse_dt(rec["created_at"])
@@ -588,14 +731,48 @@ def stats():
                 ok &= t <= parse_dt(date_to)
         return ok
 
-    # Lọc danh sách theo khoảng ngày
+    # Giữ lại bản đầy đủ để tính phí trễ theo NGÀY TRẢ
+    rentals_all = list(rentals)
+
+    # Lọc danh sách theo khoảng ngày thuê (cho tổng giao dịch + tổng giá thuê)
     if date_from or date_to:
         rentals = [r for r in rentals if in_range(r)]
 
+    # Hàm kiểm tra giao dịch có ngày trả nằm trong khoảng lọc hay không (returned_at)
+    def in_return_range(rec):
+        returned_at_str = rec.get("returned_at")
+        if not returned_at_str:
+            return False
+        try:
+            t = parse_dt(returned_at_str)
+        except:
+            return False
+
+        ok = True
+        if date_from:
+            if len(date_from) == 10:
+                ok &= t >= parse_dt(date_from + " 00:00:00")
+            else:
+                ok &= t >= parse_dt(date_from)
+        if date_to:
+            if len(date_to) == 10:
+                ok &= t <= parse_dt(date_to + " 23:59:59")
+            else:
+                ok &= t <= parse_dt(date_to)
+        return ok
+
     # Tính toán thống kê
+    # 1) Tổng số giao dịch + tổng giá thuê tính theo NGÀY THUÊ
     total_trans = len(rentals)
     total_rent = sum(price_to_int(r["rent_price"]) for r in rentals)
-    total_late = sum(price_to_int(r.get("late_fee", "0")) for r in rentals if r.get("returned_at"))
+
+    # 2) Tổng phí trễ tính theo NGÀY TRẢ
+    total_late = sum(
+        price_to_int(r.get("late_fee", "0"))
+        for r in rentals_all
+        if in_return_range(r)
+    )
+
     total = total_rent + total_late
     unread_count = count_unread_notifications(username)
 
@@ -637,18 +814,26 @@ def default_email_cfg(shop_name: str = ""):
 
 @app.route("/email-settings", methods=["GET", "POST"])
 def email_settings():
-    if require_login(): 
+    """
+    Trang CẤU HÌNH:
+      - Phần trên: Cấu hình cửa hàng
+      - Phần dưới: Cấu hình email
+    """
+    if require_login():
         return require_login()
 
     username = get_current_username()
+    shop_cfg = read_shop_cfg(username)
+
+    # ----- CẤU HÌNH EMAIL -----
     path = user_file(username, "email.json")
     cfg = read_json(path, {})
 
-    # Khôi phục mẫu mặc định (không đụng tới mật khẩu nếu đã có)
+    # Khôi phục mẫu mặc định (chỉ ảnh hưởng tới template email)
     if request.method == "GET" and request.args.get("reset_tpl") == "1":
-        base = default_email_cfg(session.get('shop_name', ''))
+        base = default_email_cfg(shop_cfg.get("shop_name", ""))
         cfg.setdefault("smtp_pass", "")
-        cfg.setdefault("sender_name", session.get('shop_name', 'Cửa Hàng Truyện Tranh 2025'))
+        cfg.setdefault("sender_name", shop_cfg.get("shop_name", "Cửa Hàng Truyện Tranh 2025"))
         cfg.setdefault("sender_email", "")
         cfg.setdefault("use_tls", True)
         cfg["tpl_rent"] = base["tpl_rent"]
@@ -657,34 +842,94 @@ def email_settings():
         flash("Đã khôi phục mẫu email mặc định.", "success")
         return redirect(url_for("email_settings"))
 
-    # Lưu cấu hình
     if request.method == "POST":
-        cfg = {
-            "smtp_pass": (request.form.get("smtp_pass") or "").strip(),
-            "sender_name": (request.form.get("sender_name") or "").strip(),
-            "sender_email": (request.form.get("sender_email") or "").strip(),
-            "use_tls": True,  # luôn dùng STARTTLS với Gmail
-            "tpl_rent": (request.form.get("tpl_rent") or "").strip(),
-            "tpl_return": (request.form.get("tpl_return") or "").strip(),
-        }
-        base = default_email_cfg(session.get('shop_name', ''))
-        if not cfg.get("tpl_rent"):
-            cfg["tpl_rent"] = base["tpl_rent"]
-        if not cfg.get("tpl_return"):
-            cfg["tpl_return"] = base["tpl_return"]
-        write_json(path, cfg)
-        flash("Đã lưu cấu hình email.", "success")
-        return redirect(url_for("email_settings"))
+        action = (request.form.get("action") or "").strip()
+
+        # ----- LƯU CẤU HÌNH CỬA HÀNG -----
+        if action == "shop":
+            shop_name = (request.form.get("shop_name") or "").strip()
+            if not shop_name:
+                shop_name = shop_cfg.get("shop_name", "")
+
+            def safe_int(val, default):
+                try:
+                    return int(val)
+                except Exception:
+                    return default
+
+            default_days = safe_int(
+                request.form.get("default_rent_days"),
+                shop_cfg.get("default_rent_days", 5),
+            )
+            late_per_day = safe_int(
+                request.form.get("late_fee_per_day"),
+                shop_cfg.get("late_fee_per_day", 10000),
+            )
+
+            if default_days < 1:
+                default_days = 1
+            if late_per_day < 0:
+                late_per_day = 0
+
+            shop_cfg.update(
+                {
+                    "shop_name": shop_name,
+                    "default_rent_days": default_days,
+                    "late_fee_per_day": late_per_day,
+                }
+            )
+            write_json(user_file(username, "shop_config.json"), shop_cfg)
+
+            # Cập nhật users.json để lần đăng nhập sau vẫn thấy tên mới
+            users = read_json(USERS_FILE, [])
+            changed = False
+            for u in users:
+                if u.get("username") == username:
+                    u["shop_name"] = shop_name
+                    changed = True
+                    break
+            if changed:
+                write_json(USERS_FILE, users)
+
+            # Cập nhật session hiện tại
+            session["shop_name"] = shop_name
+
+            flash("Đã lưu cấu hình cửa hàng.", "success")
+            return redirect(url_for("email_settings"))
+
+        # ----- LƯU CẤU HÌNH EMAIL -----
+        else:
+            cfg = {
+                "smtp_pass": (request.form.get("smtp_pass") or "").strip(),
+                "sender_name": (request.form.get("sender_name") or "").strip(),
+                "sender_email": (request.form.get("sender_email") or "").strip(),
+                "use_tls": True,  # luôn dùng STARTTLS với Gmail
+                "tpl_rent": (request.form.get("tpl_rent") or "").strip(),
+                "tpl_return": (request.form.get("tpl_return") or "").strip(),
+            }
+            base = default_email_cfg(shop_cfg.get("shop_name", ""))
+            if not cfg.get("tpl_rent"):
+                cfg["tpl_rent"] = base["tpl_rent"]
+            if not cfg.get("tpl_return"):
+                cfg["tpl_return"] = base["tpl_return"]
+            write_json(path, cfg)
+            flash("Đã lưu cấu hình email.", "success")
+            return redirect(url_for("email_settings"))
 
     # Đảm bảo có sẵn mẫu mặc định lần đầu mở
     if not cfg.get("tpl_rent") or not cfg.get("tpl_return"):
-        base = default_email_cfg(session.get('shop_name', ''))
+        base = default_email_cfg(shop_cfg.get("shop_name", ""))
         cfg.setdefault("tpl_rent", base["tpl_rent"])
         cfg.setdefault("tpl_return", base["tpl_return"])
         write_json(path, cfg)
 
     unread_count = count_unread_notifications(username)
-    return render_template("email_settings.html", cfg=cfg, unread_count=unread_count)
+    return render_template(
+        "email_settings.html",
+        cfg=cfg,
+        shop_cfg=shop_cfg,
+        unread_count=unread_count,
+    )
 
 # ================== Run ==================
 if __name__ == "__main__":
