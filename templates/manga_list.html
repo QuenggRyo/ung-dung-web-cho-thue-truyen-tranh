@@ -3,9 +3,32 @@
 <h4 class="mb-3">Quản lý truyện</h4>
 
 <form class="d-flex gap-2 mb-3" method="get" action="{{ url_for('manga_list') }}">
-  <input class="form-control" name="q" placeholder="Tìm theo tên / tác giả / thể loại" value="{{ q or '' }}">
-  <button class="btn btn-dark">Tìm</button>
-  <button type="button" class="btn btn-success ms-auto" data-bs-toggle="modal" data-bs-target="#addModal">Thêm truyện</button>
+  <input
+    class="form-control"
+    name="q"
+    placeholder="Tìm theo tên / tác giả / thể loại / mã vạch"
+    value="{{ q or '' }}"
+  >
+  <button class="btn btn-dark" type="submit">Tìm</button>
+
+  <!-- Nút quét mã vạch để tìm truyện -->
+  <button
+    type="button"
+    class="btn btn-outline-secondary"
+    id="btnScanSearch"
+    title="Quét mã vạch để tìm truyện"
+  >
+    📷
+  </button>
+
+  <button
+    type="button"
+    class="btn btn-success ms-auto"
+    data-bs-toggle="modal"
+    data-bs-target="#addModal"
+  >
+    Thêm truyện
+  </button>
 </form>
 
 <!-- ============ BẢNG CHO DESKTOP/TABLET ============ -->
@@ -100,9 +123,36 @@
             <option {{'selected' if m.condition=='Cũ' else ''}}>Cũ</option>
           </select>
         </div>
-        <div class="col-6">
+                <div class="col-6">
           <label class="form-label">Số lượng tồn kho</label>
-          <input name="stock" type="number" class="form-control" value="{{m.stock}}" required>
+          <input
+            name="stock"
+            type="number"
+            class="form-control"
+            value="{{ m.stock }}"
+            required
+          >
+        </div>
+
+        <!-- Ô mã vạch + nút quét trong modal Sửa -->
+        <div class="col-6">
+          <label class="form-label">Mã vạch</label>
+          <div class="input-group">
+            <input
+              name="barcode"
+              type="text"
+              class="form-control"
+              value="{{ m.barcode or '' }}"
+              placeholder="Quét hoặc nhập mã vạch"
+            >
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-scan-barcode"
+              title="Quét mã vạch cho truyện này"
+            >
+              📷
+            </button>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -128,17 +178,195 @@
         <div class="col-6"><label class="form-label">Thể loại</label><input name="genre" class="form-control" required></div>
         <div class="col-6"><label class="form-label">Tác giả</label><input name="author" class="form-control" required></div>
         <div class="col-6"><label class="form-label">Giá thuê (VND)</label><input name="rent_price" class="form-control" required></div>
-        <div class="col-6">
+                <div class="col-6">
           <label class="form-label">Tình trạng</label>
-          <select name="condition" class="form-select"><option>Mới</option><option>Cũ</option></select>
+          <select name="condition" class="form-select">
+            <option>Mới</option>
+            <option>Cũ</option>
+          </select>
         </div>
-        <div class="col-6"><label class="form-label">Số lượng tồn kho</label><input name="stock" type="number" class="form-control" required></div>
+
+        <div class="col-6">
+          <label class="form-label">Số lượng tồn kho</label>
+          <input
+            name="stock"
+            type="number"
+            class="form-control"
+            required
+          >
+        </div>
+
+        <!-- Ô mã vạch + nút quét trong modal Thêm -->
+        <div class="col-6">
+          <label class="form-label">Mã vạch</label>
+          <div class="input-group">
+            <input
+              name="barcode"
+              type="text"
+              class="form-control"
+              placeholder="Quét hoặc nhập mã vạch"
+            >
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-scan-barcode"
+              title="Quét mã vạch cho truyện này"
+            >
+              📷
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="modal-footer">
+            <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
         <button class="btn btn-success">Lưu</button>
       </div>
     </form>
   </div>
 </div>
+
+<!-- Modal dùng chung để mở camera quét mã vạch -->
+<div class="modal fade" id="barcodeScanModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Quét mã vạch</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="barcode-reader" style="width:100%;"></div>
+        <p class="small text-muted mt-2 mb-0">
+          Cho phép truy cập camera, rồi đưa mã vạch/QR sau cuốn truyện vào khung.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Thư viện quét mã và code điều khiển -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+  let html5QrCode = null;
+  let barcodeMode = null;      // 'search' hoặc 'input'
+  let barcodeInputEl = null;   // Input hiện tại cần điền mã vạch
+
+  function startBarcodeScanner() {
+    const readerEl = document.getElementById("barcode-reader");
+    if (!readerEl) return;
+
+    // Xóa nội dung cũ trong khung, phòng trường hợp lần trước còn sót DOM
+    readerEl.innerHTML = "";
+
+    // Mỗi lần mở modal sẽ tạo 1 instance mới
+    html5QrCode = new Html5Qrcode("barcode-reader");
+
+    html5QrCode
+      .start(
+        { facingMode: "environment" },   // ưu tiên camera sau
+        { fps: 10, qrbox: 250 },         // cấu hình khung
+        onScanSuccess,
+        onScanError
+      )
+      .catch(err => {
+        console.error("Không mở được camera:", err);
+      });
+  }
+
+  function onScanSuccess(decodedText, decodedResult) {
+    // Khi quét được mã
+    if (barcodeMode === "input" && barcodeInputEl) {
+      // Đổ mã vào ô input (Thêm/Sửa truyện)
+      barcodeInputEl.value = decodedText;
+    }
+
+    if (barcodeMode === "search") {
+      // Đổ mã vào ô tìm kiếm và submit form
+      const qInput = document.querySelector('form[method="get"] input[name="q"]');
+      if (qInput) {
+        qInput.value = decodedText;
+        qInput.form.submit();
+      }
+    }
+
+    // Tắt camera + đóng modal sau khi quét xong
+    closeScannerAndHideModal();
+  }
+
+  function onScanError(errorMessage) {
+    // Lỗi từng frame thì bỏ qua, không cần log cho đỡ spam console
+    // console.log(errorMessage);
+  }
+
+  function closeScannerAndHideModal() {
+    const modalEl = document.getElementById("barcodeScanModal");
+    const modal = bootstrap.Modal.getInstance(modalEl);
+
+    if (!html5QrCode) {
+      if (modal) modal.hide();
+      return;
+    }
+
+    html5QrCode
+      .stop()
+      .then(() => html5QrCode.clear())
+      .then(() => {
+        html5QrCode = null;
+        if (modal) modal.hide();
+      })
+      .catch(err => {
+        console.error("Không tắt được camera:", err);
+        html5QrCode = null;
+        if (modal) modal.hide();
+      });
+  }
+
+  // Nếu user tự ấn nút X đóng modal thì cũng tắt camera
+  function forceStopScannerOnHide() {
+    if (!html5QrCode) return;
+
+    html5QrCode
+      .stop()
+      .then(() => html5QrCode.clear())
+      .catch(() => {})
+      .finally(() => {
+        html5QrCode = null;
+      });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const scanModalEl = document.getElementById("barcodeScanModal");
+
+    // Khi modal hiển thị thì bật camera
+    scanModalEl.addEventListener("shown.bs.modal", function () {
+      startBarcodeScanner();
+    });
+
+    // Khi modal đóng (user ấn X hoặc click ra ngoài) thì đảm bảo tắt camera
+    scanModalEl.addEventListener("hidden.bs.modal", function () {
+      forceStopScannerOnHide();
+    });
+
+    // Nút quét mã ở cạnh ô Tìm
+    const btnScanSearch = document.getElementById("btnScanSearch");
+    if (btnScanSearch) {
+      btnScanSearch.addEventListener("click", function () {
+        barcodeMode = "search";
+        barcodeInputEl = null;
+        const modal = new bootstrap.Modal(scanModalEl);
+        modal.show();
+      });
+    }
+
+    // Các nút quét mã trong modal Thêm / Sửa truyện
+    document.querySelectorAll(".btn-scan-barcode").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const group = this.closest(".input-group");
+        const input = group ? group.querySelector('input[name="barcode"]') : null;
+        barcodeMode = "input";
+        barcodeInputEl = input;
+        const modal = new bootstrap.Modal(scanModalEl);
+        modal.show();
+      });
+    });
+  });
+</script>
 {% endblock %}
