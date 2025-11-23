@@ -216,32 +216,108 @@
 </div>
 {% endfor %}
 
-<!-- ===== Modals LỊCH SỬ THUÊ (mở khi bấm ID) ===== -->
+<!-- ===== Modals HỒ SƠ & LỊCH SỬ KHÁCH HÀNG ===== -->
 {% set all_rentals = read_json(user_file(session['username'],'rentals.json'),
+[]) %} {% set all_manga = read_json(user_file(session['username'],'manga.json'),
 []) %} {% for c in items %}
 <div class="modal fade" id="history{{c.id}}" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Lịch sử thuê — KH {{ c.id }} ({{ c.name }})</h5>
+        <h5 class="modal-title">
+          Hồ sơ khách hàng — {{ c.name }} (ID {{ c.id }})
+        </h5>
         <button
           type="button"
           class="btn-close"
           data-bs-dismiss="modal"
         ></button>
       </div>
+
       <div class="modal-body scroll-y">
-        {% set history = [] %} {% for r in all_rentals %} {% if r.customer_id ==
-        c.id %} {% set _ = history.append(r) %} {% endif %} {% endfor %} {% if
-        history|length == 0 %}
+        {# ==== TÍNH TOÁN THỐNG KÊ & LỊCH SỬ ==== #} {% set history = [] %} {%
+        set stats = namespace(total_rentals=0, total_spent=0, last_visit='',
+        late_count=0) %} {% set fav = namespace(genres=[], rented_ids=[]) %} {%
+        for r in all_rentals %} {% if r.customer_id == c.id %} {# gom lịch sử #}
+        {% set _ = history.append(r) %} {# tổng lượt thuê & tổng tiền (tiền thuê
+        + phí trễ) #} {% set stats.total_rentals = stats.total_rentals + 1 %} {%
+        set stats.total_spent = stats.total_spent + price_to_int(r.rent_price) +
+        price_to_int(r.late_fee or '0') %} {# lần cuối thuê (tính theo ngày
+        thuê) #} {% if r.created_at and (not stats.last_visit or r.created_at >
+        stats.last_visit) %} {% set stats.last_visit = r.created_at %} {% endif
+        %} {# đếm số lần trả trễ #} {% if r.returned_at and
+        price_to_int(r.late_fee or '0') > 0 %} {% set stats.late_count =
+        stats.late_count + 1 %} {% endif %} {# lưu các truyện đã thuê #} {% if
+        r.manga_id not in fav.rented_ids %} {% set _ =
+        fav.rented_ids.append(r.manga_id) %} {% endif %} {# gom các thể loại đã
+        thuê #} {% set mg = (all_manga | selectattr('id', 'equalto', r.manga_id)
+        | list | first) %} {% if mg %} {% set genre_str = mg.genre or '' %} {%
+        for g in genre_str.split(',') %} {% set gg = g.strip() %} {% if gg and
+        gg not in fav.genres %} {% set _ = fav.genres.append(gg) %} {% endif %}
+        {% endfor %} {% endif %} {% endif %} {% endfor %} {% set late_rate =
+        (stats.late_count * 100 // stats.total_rentals) if stats.total_rentals
+        else 0 %}
+
+        <!-- Khối thông tin tổng quan khách hàng -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-3 col-6">
+            <div class="small text-muted">Tổng lượt thuê</div>
+            <div class="fw-bold">{{ stats.total_rentals }}</div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="small text-muted">Tổng tiền đã chi</div>
+            <div class="fw-bold text-success">
+              {{ "{:,}".format(stats.total_spent).replace(",", ".") }} VND
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="small text-muted">Tỉ lệ trả trễ</div>
+            <div
+              class="fw-bold {% if late_rate >= 30 %}text-danger{% else %}text-body{% endif %}"
+            >
+              {{ late_rate }}%
+            </div>
+          </div>
+          <div class="col-md-3 col-6">
+            <div class="small text-muted">Lần cuối thuê</div>
+            <div class="fw-bold">
+              {% if stats.last_visit %} {{ stats.last_visit }} {% else %}
+              <span class="text-muted">Chưa từng thuê</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Khối gợi ý truyện -->
+        {% set suggest = namespace(items=[]) %} {% if fav.genres %} {% for mg in
+        all_manga %} {% if mg.id not in fav.rented_ids and suggest.items|length
+        < 5 %} {% set has_genre = namespace(found=false) %} {% set genre_str =
+        mg.genre or '' %} {% for g in genre_str.split(',') %} {% if g.strip() in
+        fav.genres %} {% set has_genre.found = true %} {% endif %} {% endfor %}
+        {% if has_genre.found %} {% set _ = suggest.items.append(mg) %} {% endif
+        %} {% endif %} {% endfor %} {% endif %} {% if suggest.items %}
+        <div class="mb-3">
+          <h6 class="mb-2">Gợi ý truyện cho khách này</h6>
+          <div class="d-flex flex-wrap gap-2">
+            {% for mg in suggest.items %}
+            <span
+              class="badge bg-light text-primary border border-primary px-2 py-1"
+            >
+              {{ mg.id }} — {{ mg.title }}
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Bảng lịch sử thuê -->
+        {% if history|length == 0 %}
         <div class="text-muted">Chưa có giao dịch.</div>
         {% else %}
-        <div class="table-responsive">
-          <table
-            class="table table-bordered table-hover align-middle table-nowrap"
-          >
+        <div class="table-responsive mt-2">
+          <table class="table table-sm table-striped align-middle">
             <colgroup>
-              <col style="min-width: 260px" />
+              <col style="min-width: 220px" />
               <!-- Truyện -->
               <col style="min-width: 170px" />
               <!-- Ngày thuê -->
@@ -254,7 +330,7 @@
               <col style="min-width: 130px" />
               <!-- Giá thuê -->
               <col style="min-width: 110px" />
-              <!-- Phí trễ hạn -->
+              <!-- Phí trễ -->
             </colgroup>
             <thead class="table-light">
               <tr>
@@ -274,9 +350,17 @@
                 <td>{{ r.created_at }}</td>
                 <td>{{ r.due_at }}</td>
                 <td>{{ r.returned_at or '' }}</td>
-                <td>{{ 'Đã trả' if r.returned_at else 'Chưa trả' }}</td>
-                <td>{{ r.rent_price }}</td>
-                <td>{{ r.late_fee }}</td>
+                <td>
+                  {% if not r.returned_at %}
+                  <span class="badge bg-warning text-dark">Đang thuê</span>
+                  {% else %} {% if price_to_int(r.late_fee or '0') > 0 %}
+                  <span class="badge bg-danger">Trả trễ</span>
+                  {% else %}
+                  <span class="badge bg-success">Đúng hạn</span>
+                  {% endif %} {% endif %}
+                </td>
+                <td>{{ r.rent_price }} VND</td>
+                <td>{{ calc_late_fee(r) }} VND</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -284,6 +368,7 @@
         </div>
         {% endif %}
       </div>
+
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           Đóng

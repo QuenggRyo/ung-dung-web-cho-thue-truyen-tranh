@@ -1,68 +1,228 @@
 {% extends "base.html" %} {% block content %}
-<h4 class="mb-3">Thống kê doanh thu</h4>
+<h4 class="mb-3">Thống kê</h4>
 
-<form class="row g-2 mb-3" method="get" action="{{ url_for('stats') }}">
-  <div class="col-md-3">
-    <label class="form-label">Từ ngày</label>
-    <input
-      name="from"
-      class="form-control"
-      placeholder="DD-MM-YYYY"
-      value="{{ date_from }}"
-    />
-  </div>
-  <div class="col-md-3">
-    <label class="form-label">Đến ngày</label>
-    <input
-      name="to"
-      class="form-control"
-      placeholder="DD-MM-YYYY"
-      value="{{ date_to }}"
-    />
-  </div>
-  <div class="col-md-3 d-flex align-items-end">
-    <button class="btn btn-dark">Thống kê</button>
-  </div>
-</form>
+<!-- PHẦN 1: TỔNG QUAN HOẠT ĐỘNG -->
+<div class="mb-4">
+  <h5 class="mb-3">Tổng quan hoạt động</h5>
 
-<div class="row g-3">
-  <div class="col-md-3">
-    <div class="card text-center">
-      <div class="card-body">
-        <div class="text-muted">Tổng giao dịch</div>
-        <div class="display-6">{{ total_trans }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card text-center">
-      <div class="card-body">
-        <div class="text-muted">Tổng giá thuê</div>
-        <div class="display-6">
-          {{ "{:,}".format(total_rent).replace(",", ".") }} VND
+  <div class="row g-3">
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-primary">
+        <div class="card-body py-3">
+          <div class="text-muted mb-1">Tổng khách hàng</div>
+          <div class="h3 mb-0 text-primary">{{ total_customers }}</div>
         </div>
       </div>
     </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card text-center">
-      <div class="card-body">
-        <div class="text-muted">Tổng phí trễ</div>
-        <div class="display-6">
-          {{ "{:,}".format(total_late).replace(",", ".") }} VND
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-info">
+        <div class="card-body py-3">
+          <div class="text-muted mb-1">Tổng đầu truyện</div>
+          <div class="h3 mb-0 text-info">{{ total_manga }}</div>
         </div>
       </div>
     </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card text-center border-success">
-      <div class="card-body">
-        <div class="text-muted">Doanh thu tổng</div>
-        <div class="display-6 text-success">
-          {{ "{:,}".format(total).replace(",", ".") }} VND
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-warning">
+        <div class="card-body py-3">
+          <div class="text-muted mb-1">Đang cho thuê</div>
+          <div class="h3 mb-0 text-warning">{{ total_active }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-danger">
+        <div class="card-body py-3">
+          <div class="text-muted mb-1">Đang quá hạn</div>
+          <div class="h3 mb-0 text-danger">{{ total_overdue }}</div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<!-- PHẦN 2: THỐNG KÊ DOANH THU -->
+<div class="mb-4">
+  <h5 class="mb-3">Thống kê doanh thu</h5>
+
+  <form class="row g-2 mb-3" method="get" action="{{ url_for('stats') }}">
+    <div class="col-md-3">
+      <label class="form-label">Từ ngày</label>
+      <input
+        name="from"
+        class="form-control"
+        placeholder="DD-MM-YYYY"
+        value="{{ date_from }}"
+      />
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Đến ngày</label>
+      <input
+        name="to"
+        class="form-control"
+        placeholder="DD-MM-YYYY"
+        value="{{ date_to }}"
+      />
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-success" type="submit">Lọc</button>
+    </div>
+  </form>
+
+  <!-- Các ô doanh thu -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-secondary">
+        <div class="card-body py-3">
+          <div class="text-muted">Tổng giao dịch</div>
+          <div class="h4 mb-0">{{ total_trans }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-primary">
+        <div class="card-body py-3">
+          <div class="text-muted">Tổng tiền thuê</div>
+          <div class="h5 mb-0">
+            {{ "{:,}".format(total_rent).replace(",", ".") }} VND
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-danger">
+        <div class="card-body py-3">
+          <div class="text-muted">Tổng phí trễ</div>
+          <div class="h5 mb-0 text-danger">
+            {{ "{:,}".format(total_late).replace(",", ".") }} VND
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center border-success">
+        <div class="card-body py-3">
+          <div class="text-muted">Doanh thu tổng</div>
+          <div class="h5 mb-0 text-success">
+            {{ "{:,}".format(total).replace(",", ".") }} VND
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 biểu đồ -->
+  <div class="row g-3">
+    <div class="col-md-8">
+      <div class="card h-100">
+        <div class="card-header bg-white">
+          <strong>Doanh thu theo ngày</strong>
+          <span class="text-muted small ms-2">
+            {{ date_from or 'Tất cả' }} → {{ date_to or 'Tất cả' }}
+          </span>
+        </div>
+        <div class="card-body">
+          <canvas id="revenueChart" height="120"></canvas>
+          {% if not chart_labels %}
+          <p class="text-muted small mt-2 mb-0">
+            Không có dữ liệu giao dịch trong khoảng ngày đã chọn.
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-white">
+          <strong>Tỉ lệ thể loại được thuê</strong>
+        </div>
+        <div class="card-body">
+          <canvas id="genreChart" height="180"></canvas>
+          {% if not genre_labels %}
+          <p class="text-muted small mt-2 mb-0">
+            Chưa có dữ liệu thể loại trong khoảng ngày này.
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Dữ liệu từ backend (Python) đẩy sang
+  const revenueLabels = JSON.parse(String.raw`{{ chart_labels|tojson|safe }}`);
+  const revenueData = JSON.parse(String.raw`{{ chart_revenue|tojson|safe }}`);
+  const genreLabels = JSON.parse(String.raw`{{ genre_labels|tojson|safe }}`);
+  const genreData = JSON.parse(String.raw`{{ genre_counts|tojson|safe }}`);
+
+  document.addEventListener("DOMContentLoaded", function () {
+    const revCanvas = document.getElementById("revenueChart");
+    if (revCanvas) {
+      new Chart(revCanvas, {
+        type: "line",
+        data: {
+          labels: revenueLabels,
+          datasets: [
+            {
+              label: "Doanh thu (VND)",
+              data: revenueData,
+              tension: 0.3,
+              fill: true,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            legend: { display: false },
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: function (value) {
+                  try {
+                    return value.toLocaleString("vi-VN");
+                  } catch (e) {
+                    return value;
+                  }
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    const genreCanvas = document.getElementById("genreChart");
+    if (genreCanvas) {
+      new Chart(genreCanvas, {
+        type: "doughnut",
+        data: {
+          labels: genreLabels,
+          datasets: [
+            {
+              data: genreData,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            legend: {
+              position: "bottom",
+            },
+          },
+        },
+      });
+    }
+  });
+</script>
 {% endblock %}

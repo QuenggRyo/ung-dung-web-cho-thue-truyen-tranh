@@ -5,13 +5,23 @@
     Double-click vào thông báo để đánh dấu đã đọc từng cái.
   </p>
 
-  <button
-    type="button"
-    class="btn btn-sm btn-outline-primary"
-    onclick="markAllRead()"
-  >
-    Đánh dấu tất cả đã đọc
-  </button>
+  <div class="d-flex gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      onclick="markAllRead()"
+    >
+      Đánh dấu tất cả đã đọc
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-danger"
+      onclick="deleteAllNoti()"
+    >
+      Xóa tất cả thông báo
+    </button>
+  </div>
 </div>
 
 <div class="list-y-scroll mt-2">
@@ -66,6 +76,33 @@
           li.classList.remove("list-group-item-warning");
           li.querySelector(".badge")?.remove();
         });
+
+        // Xóa badge số thông báo trên menu
+        const badge = document.querySelector(".badge-noti .count");
+        if (badge) {
+          badge.remove();
+        }
+      })
+      .catch(() => {});
+  }
+
+  // ===== XÓA TẤT CẢ THÔNG BÁO =====
+  function deleteAllNoti() {
+    if (
+      !confirm(
+        "Bạn có chắc muốn xóa TẤT CẢ thông báo? Hành động này không thể hoàn tác."
+      )
+    ) {
+      return;
+    }
+
+    fetch("{{ url_for('notifications') }}?delete=all", { method: "POST" })
+      .then(() => {
+        // Xóa toàn bộ item trong danh sách
+        const ul = document.querySelector(".list-group");
+        if (ul) {
+          ul.innerHTML = "";
+        }
 
         // Xóa badge số thông báo trên menu
         const badge = document.querySelector(".badge-noti .count");

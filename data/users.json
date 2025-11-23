@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "username": "Nhom65",
+    "email": "nhom65@gmail.com",
+    "password_hash": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+    "shop_name": "Cửa Hàng Truyện Tranh Nhóm 65",
+    "created_at": "09-11-2025 09:53:12"
+  }
+]
