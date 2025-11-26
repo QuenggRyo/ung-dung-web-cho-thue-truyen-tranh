@@ -79,6 +79,30 @@
         white-space: nowrap !important; /* ép chữ trên 1 dòng */
       }
 
+      /* Hàng nút có 2–3 nút: desktop nằm ngang, mobile xếp dọc */
+      .btn-row-responsive {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap; /* thiếu chỗ thì cho cả cụm nút xuống hàng */
+      }
+
+      .btn-row-responsive .btn {
+        white-space: nowrap !important; /* mỗi nút vẫn 1 dòng chữ */
+      }
+
+      @media (max-width: 576px) {
+        .btn-row-responsive {
+          flex-direction: column; /* vẫn xếp dọc */
+          align-items: flex-start; /* căn giữa các nút, không kéo full chiều ngang */
+        }
+
+        .btn-row-responsive .btn {
+          width: auto; /* rộng vừa nội dung */
+          max-width: 100%; /* không vượt quá màn hình */
+          justify-content: center; /* chữ nằm giữa nút */
+        }
+      }
+
       /* Nút màu xanh cho nổi vừa phải */
       .btn-success {
         font-weight: 500;

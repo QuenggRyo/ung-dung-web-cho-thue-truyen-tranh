@@ -1,11 +1,13 @@
 {% extends "base.html" %} {% block content %}
 <h4 class="mb-3">Thông báo</h4>
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div
+  class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+>
   <p class="text-muted mb-0">
     Double-click vào thông báo để đánh dấu đã đọc từng cái.
   </p>
 
-  <div class="d-flex gap-2">
+  <div class="btn-row-responsive">
     <button
       type="button"
       class="btn btn-sm btn-outline-primary"
@@ -17,11 +19,12 @@
     <button
       type="button"
       class="btn btn-sm btn-outline-danger"
-      onclick="deleteAllNoti()"
+      onclick="deleteAllNotifications()"
     >
       Xóa tất cả thông báo
     </button>
   </div>
+</div>
 </div>
 
 <div class="list-y-scroll mt-2">

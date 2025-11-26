@@ -1,18 +1,10 @@
 # app.py  # Đây là file backend chính của Flask, chứa toàn bộ logic chạy web/app
 
-import os, json, uuid, smtplib, hashlib  # Import nhiều thư viện chuẩn:
-                                        # os: thao tác thư mục/đường dẫn hệ điều hành
-                                        # json: đọc/ghi dữ liệu dạng JSON
-                                        # uuid: tạo ID ngẫu nhiên duy nhất cho bản ghi
-                                        # smtplib: gửi email qua SMTP
-                                        # hashlib: băm/mã hóa chuỗi (dùng cho mật khẩu)
+import os, json, uuid, smtplib, hashlib # os: thao tác thư mục/đường dẫn hệ điều hành, json: đọc/ghi dữ liệu dạng JSON, uuid: tạo ID ngẫu nhiên duy nhất cho bản ghi, smtplib: gửi email qua SMTP, hashlib: băm/mã hóa chuỗi (dùng cho mật khẩu)
 
-from datetime import datetime, timedelta  # Import datetime để lấy thời gian hiện tại,
-                                         # timedelta để cộng/trừ số ngày (ví dụ tính ngày đến hạn)
-
+from datetime import datetime, timedelta  # Import datetime để lấy thời gian hiện tại, timedelta để cộng/trừ số ngày (ví dụ tính ngày đến hạn)
 from email.mime.text import MIMEText  # MIMEText dùng để tạo nội dung email dạng text hoặc html
 from email.utils import formataddr    # formataddr giúp ghép "Tên hiển thị + email" chuẩn RFC khi gửi
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify # type: ignore
 # Import các thành phần Flask:
 # Flask: tạo app
